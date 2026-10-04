@@ -1,0 +1,12 @@
+com\usac\colegio\jasperschoolbackend\modelo\Grado.class
+com\usac\colegio\jasperschoolbackend\modelo\CodigoRecuperacion.class
+com\usac\colegio\jasperschoolbackend\enums\Nivel.class
+com\usac\colegio\jasperschoolbackend\modelo\Carrera.class
+com\usac\colegio\jasperschoolbackend\modelo\Usuario.class
+com\usac\colegio\jasperschoolbackend\enums\EstadoAnioLectivo.class
+com\usac\colegio\jasperschoolbackend\resources\PingResource.class
+com\usac\colegio\jasperschoolbackend\modelo\Admin.class
+com\usac\colegio\jasperschoolbackend\JakartaRestConfiguration.class
+com\usac\colegio\jasperschoolbackend\modelo\AnioLectivo.class
+com\usac\colegio\jasperschoolbackend\enums\EstadoGeneral.class
+com\usac\colegio\jasperschoolbackend\modelo\SuperAdmin.class
