@@ -12,6 +12,7 @@ import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionPersistencia;
  * @author eduar
  */
 public interface UsuarioDAO {
+    Optional<Usuario> buscarPorId(int idUsuario) throws ExcepcionPersistencia;
     Optional<Usuario> buscarPorCorreo(String correo) throws ExcepcionPersistencia;
     Optional<Usuario> buscarPorCui(String cui) throws ExcepcionPersistencia;
     boolean existeCorreo(String correo) throws ExcepcionPersistencia;

@@ -22,6 +22,24 @@ import java.util.Optional;
  */
 public class UsuarioDAOPersistencia implements UsuarioDAO {
     @Override
+    public Optional<Usuario> buscarPorId(int idUsuario) throws ExcepcionPersistencia {
+        String sql = "SELECT * FROM usuario WHERE id_usuario = ?";
+        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+            PreparedStatement ps = con.prepareStatement(sql)) {
+
+            ps.setInt(1, idUsuario);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return Optional.of(construirUsuarioConRol(con, rs));
+                }
+            }
+        } catch (SQLException e) {
+            throw new ExcepcionPersistencia("Error al buscar usuario por id", e);
+        }
+        return Optional.empty();
+    }
+
+    @Override
     public Optional<Usuario> buscarPorCorreo(String correo) throws ExcepcionPersistencia {
         String sql = "SELECT * FROM usuario WHERE correo = ?";
         try (Connection con = ConexionBase.obtenerInstancia().getConexion();
