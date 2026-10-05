@@ -4,6 +4,7 @@
  */
 package com.usac.colegio.jasperschoolbackend.modelo;
 
+import com.usac.colegio.jasperschoolbackend.utilidades.ContrasenaUtil;
 /**
  *
  * @author eduar
@@ -53,6 +54,6 @@ public abstract class Usuario {
     public void setContrasena(String contrasena) { this.contrasena = contrasena; }
 
     public boolean validarContrasena(String intentada) {
-        return this.contrasena.equals(intentada);
+        return ContrasenaUtil.verificar(intentada, this.contrasena);
     }
 }

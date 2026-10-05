@@ -21,6 +21,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import com.usac.colegio.jasperschoolbackend.utilidades.ContrasenaUtil;
 /**
  *
  * @author eduar
@@ -49,7 +50,7 @@ public class SuperAdminDAOPersistencia implements SuperAdminDAO{
                 psUsuario.setString(3, superAdmin.getCorreo());
                 psUsuario.setString(4, superAdmin.getTelefono());
                 psUsuario.setString(5, superAdmin.getDireccion());
-                psUsuario.setString(6, superAdmin.getContrasena());
+                psUsuario.setString(6, ContrasenaUtil.hashear(superAdmin.getContrasena()));
                 psUsuario.executeUpdate();
 
                 int idGenerado;

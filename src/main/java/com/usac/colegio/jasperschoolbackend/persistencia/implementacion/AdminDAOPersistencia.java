@@ -20,6 +20,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import com.usac.colegio.jasperschoolbackend.utilidades.ContrasenaUtil;
 /**
  *
  * @author eduar
@@ -44,7 +45,7 @@ public class AdminDAOPersistencia implements AdminDAO{
                 psUsuario.setString(3, admin.getCorreo());
                 psUsuario.setString(4, admin.getTelefono());
                 psUsuario.setString(5, admin.getDireccion());
-                psUsuario.setString(6, admin.getContrasena());
+                psUsuario.setString(6, ContrasenaUtil.hashear(admin.getContrasena()));
                 psUsuario.executeUpdate();
 
                 int idGenerado;

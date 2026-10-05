@@ -16,6 +16,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Optional;
+import com.usac.colegio.jasperschoolbackend.utilidades.ContrasenaUtil;
 /**
  *
  * @author eduar
@@ -115,7 +116,7 @@ public class UsuarioDAOPersistencia implements UsuarioDAO {
         try (Connection con = ConexionBase.obtenerInstancia().getConexion();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
-            ps.setString(1, nuevaContrasena);
+            ps.setString(1, ContrasenaUtil.hashear(nuevaContrasena));
             ps.setInt(2, idUsuario);
             ps.executeUpdate();
         } catch (SQLException e) {
