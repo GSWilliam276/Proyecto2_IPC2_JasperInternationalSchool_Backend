@@ -1,0 +1,62 @@
+/*
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
+ */
+package com.usac.colegio.jasperschoolbackend.controlador;
+
+import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionPersistencia;
+import com.usac.colegio.jasperschoolbackend.modelo.SuperAdmin;
+import com.usac.colegio.jasperschoolbackend.persistencia.implementacion.SuperAdminDAOPersistencia;
+import com.usac.colegio.jasperschoolbackend.persistencia.interfaces.SuperAdminDAO;
+import com.usac.colegio.jasperschoolbackend.seguridad.RolesPermitidos;
+import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaError;
+import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaUsuario;
+import jakarta.ws.rs.DefaultValue;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import java.util.ArrayList;
+import java.util.List;
+/**
+ *
+ * @author eduar
+ */
+@Path("superadmins")
+public class SuperAdminControlador {
+    private final SuperAdminDAO superAdminDAO = new SuperAdminDAOPersistencia();
+
+    @GET
+    @Produces(MediaType.APPLICATION_JSON)
+    @RolesPermitidos({"SUPERADMIN"})
+    public Response listar(@QueryParam("pagina") @DefaultValue("1") int pagina,
+                           @QueryParam("tamano") @DefaultValue("10") int tamano,
+                           @QueryParam("busqueda") String busqueda) {
+
+        if (pagina < 1 || tamano < 1) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new RespuestaError("La página y el tamaño deben ser mayores que cero"))
+                    .build();
+        }
+
+        try {
+            List<SuperAdmin> superAdmins = superAdminDAO.listarPaginado(pagina, tamano, busqueda);
+
+            List<RespuestaUsuario> respuesta = new ArrayList<>();
+            for (SuperAdmin s : superAdmins) {
+                respuesta.add(new RespuestaUsuario(
+                        s.getIdUsuario(), s.getCui(), s.getNombre(), s.getCorreo(),
+                        s.getTelefono(), s.getDireccion(), s.getEstado().name()));
+            }
+
+            return Response.ok(respuesta).build();
+
+        } catch (ExcepcionPersistencia e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity(new RespuestaError("Error interno al listar los superadmins"))
+                    .build();
+        }
+    }
+}
