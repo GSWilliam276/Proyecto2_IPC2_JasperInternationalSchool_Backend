@@ -2,7 +2,7 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
-package com.usac.colegio.jasperschoolbackend.resources;
+package com.usac.colegio.jasperschoolbackend.controlador;
 
 import com.usac.colegio.jasperschoolbackend.enums.EstadoGeneral;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionPersistencia;
@@ -22,6 +22,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.Optional;
+import com.usac.colegio.jasperschoolbackend.seguridad.Publico;
 /**
  *
  * @author eduar
@@ -29,11 +30,12 @@ import java.util.Optional;
  * Ruta final: POST /api/v1/auth/login
  */
 @Path("auth")
-public class AutenticacionResource {
+public class AutenticacionControlador {
     private final UsuarioDAO usuarioDAO = new UsuarioDAOPersistencia();
 
     @POST
     @Path("login")
+    @Publico
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public Response iniciarSesion(SolicitudInicioSesion solicitud) {

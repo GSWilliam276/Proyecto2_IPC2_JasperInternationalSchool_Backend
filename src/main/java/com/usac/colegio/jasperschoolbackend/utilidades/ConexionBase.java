@@ -11,10 +11,12 @@ import org.apache.tomcat.jdbc.pool.PoolProperties;
 /**
  *
  * @author eduar
+ * Singleton que administra el pool de conexiones a MySQL
  */
 public class ConexionBase {
-    private static ConexionBase instancia;
-    private DataSource dataSource;
+    private static final ConexionBase instancia = new ConexionBase();
+
+    private final DataSource dataSource;
 
     private static final String URL = "jdbc:mysql://localhost:3306/sistema_colegio";
     private static final String DRIVER = "com.mysql.cj.jdbc.Driver";
@@ -35,10 +37,7 @@ public class ConexionBase {
         this.dataSource.setPoolProperties(propiedades);
     }
 
-    public static synchronized ConexionBase obtenerInstancia() {
-        if (instancia == null) {
-            instancia = new ConexionBase();
-        }
+    public static ConexionBase obtenerInstancia() {
         return instancia;
     }
 
