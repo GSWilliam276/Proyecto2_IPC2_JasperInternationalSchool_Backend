@@ -4,6 +4,9 @@
  */
 package com.usac.colegio.jasperschoolbackend.controlador;
 
+import com.usac.colegio.jasperschoolbackend.enums.EstadoGeneral;
+import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionCorreoDuplicado;
+import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionCuiDuplicado;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionPersistencia;
 import com.usac.colegio.jasperschoolbackend.modelo.SuperAdmin;
 import com.usac.colegio.jasperschoolbackend.persistencia.implementacion.SuperAdminDAOPersistencia;
@@ -22,6 +25,9 @@ import java.util.ArrayList;
 import java.util.List;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionSuperAdminNoEncontrado;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionUltimoSuperAdmin;
+import com.usac.colegio.jasperschoolbackend.transferencia.SolicitudCrearUsuario;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.PathParam;
 /**
@@ -102,5 +108,69 @@ public class SuperAdminControlador {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                     .entity(new RespuestaError("Error interno al desactivar el superadmin")).build();
         }
+    }
+    
+    /** CU006 Crear SuperAdmin. */
+    @POST
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    @RolesPermitidos({"SUPERADMIN"})
+    public Response crear(SolicitudCrearUsuario solicitud) {
+        //validacion en el backend: nunca se confia solo en el formulario de Angular
+        String problema = validar(solicitud);
+        if (problema != null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new RespuestaError(problema)).build();
+        }
+
+        SuperAdmin nuevo = new SuperAdmin(0, solicitud.getCui().trim(), solicitud.getNombre().trim(),
+                solicitud.getCorreo().trim(), solicitud.getTelefono().trim(),
+                solicitud.getDireccion().trim(), solicitud.getContrasena(), EstadoGeneral.ACTIVO);
+
+        try {
+            superAdminDAO.crear(nuevo); //el DAO hashea la contraseña y guarda usuario + superadmin en una transaccion
+            RespuestaUsuario respuesta = new RespuestaUsuario(nuevo.getIdUsuario(), nuevo.getCui(),
+                    nuevo.getNombre(), nuevo.getCorreo(), nuevo.getTelefono(), nuevo.getDireccion(),
+                    nuevo.getEstado().name());
+            return Response.status(Response.Status.CREATED).entity(respuesta).build(); //201
+        } catch (ExcepcionCorreoDuplicado | ExcepcionCuiDuplicado e) {
+            //409: la peticion esta bien armada, pero choca con un dato que ya existe
+            return Response.status(Response.Status.CONFLICT)
+                    .entity(new RespuestaError(e.getMessage())).build();
+        } catch (ExcepcionPersistencia e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity(new RespuestaError("Error interno al crear el superadmin")).build();
+        }
+    }
+
+    //Validacion de la solicitud 
+
+    private String validar(SolicitudCrearUsuario s) {
+        if (s == null || vacio(s.getCui()) || vacio(s.getNombre()) || vacio(s.getCorreo())
+                || vacio(s.getTelefono()) || vacio(s.getDireccion()) || vacio(s.getContrasena())) {
+            return "Todos los campos son obligatorios";
+        }
+        if (!s.getCui().trim().matches("\\d{13}")) {
+            return "El CUI debe tener exactamente 13 dígitos";
+        }
+        if (!s.getCorreo().trim().matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
+            return "El correo no tiene un formato válido";
+        }
+        if (!s.getTelefono().trim().matches("\\d{8,15}")) {
+            return "El teléfono debe tener entre 8 y 15 dígitos";
+        }
+        if (s.getNombre().trim().length() > 100 || s.getCorreo().trim().length() > 100
+                || s.getDireccion().trim().length() > 100) {
+            return "Nombre, correo y dirección no pueden pasar de 100 caracteres";
+        }
+        //el maximo de 64 evita el limite de 72 bytes de BCrypt
+        if (s.getContrasena().length() < 8 || s.getContrasena().length() > 64) {
+            return "La contraseña debe tener entre 8 y 64 caracteres";
+        }
+        return null; //todo bien
+    }
+
+    private boolean vacio(String texto) {
+        return texto == null || texto.isBlank();
     }
 }
