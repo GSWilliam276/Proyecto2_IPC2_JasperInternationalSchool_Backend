@@ -32,7 +32,7 @@ public class CarreraDAOPersistencia implements CarreraDAO{
         }
 
         String sql = "INSERT INTO carrera (nombre, estado) VALUES (?, ?)";
-        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+        try (Connection con = ConexionBase.getConexion();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             ps.setString(1, carrera.getNombre());
@@ -51,7 +51,7 @@ public class CarreraDAOPersistencia implements CarreraDAO{
         }
 
         String sql = "UPDATE carrera SET nombre = ? WHERE id_carrera = ?";
-        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+        try (Connection con = ConexionBase.getConexion();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             ps.setString(1, carrera.getNombre());
@@ -69,7 +69,7 @@ public class CarreraDAOPersistencia implements CarreraDAO{
     @Override
     public Optional<Carrera> buscarPorId(int id) throws ExcepcionPersistencia {
         String sql = "SELECT * FROM carrera WHERE id_carrera = ?";
-        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+        try (Connection con = ConexionBase.getConexion();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             ps.setInt(1, id);
@@ -88,7 +88,7 @@ public class CarreraDAOPersistencia implements CarreraDAO{
     public List<Carrera> listarPaginado(int pagina, int tamanoPagina, String busqueda) throws ExcepcionPersistencia {
         String sql = "SELECT * FROM carrera WHERE nombre LIKE ? LIMIT ? OFFSET ?";
         List<Carrera> carreras = new ArrayList<>();
-        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+        try (Connection con = ConexionBase.getConexion();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             String filtro = "%" + (busqueda == null ? "" : busqueda) + "%";
@@ -123,7 +123,7 @@ public class CarreraDAOPersistencia implements CarreraDAO{
 
     private void cambiarEstado(int id, EstadoGeneral nuevoEstado) throws ExcepcionCarreraNoEncontrada, ExcepcionPersistencia {
         String sql = "UPDATE carrera SET estado = ? WHERE id_carrera = ?";
-        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+        try (Connection con = ConexionBase.getConexion();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             ps.setString(1, nuevoEstado.name());
@@ -144,7 +144,7 @@ public class CarreraDAOPersistencia implements CarreraDAO{
             sql += " AND id_carrera != ?";
         }
 
-        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+        try (Connection con = ConexionBase.getConexion();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             ps.setString(1, nombre);

@@ -36,7 +36,7 @@ public class SuperAdminDAOPersistencia implements SuperAdminDAO{
 
         Connection con = null;
         try {
-            con = ConexionBase.obtenerInstancia().getConexion();
+            con = ConexionBase.getConexion();
 
             //Arranca la transaccion
             con.setAutoCommit(false);
@@ -109,7 +109,7 @@ public class SuperAdminDAOPersistencia implements SuperAdminDAO{
     public void editar(SuperAdmin superAdmin) throws ExcepcionPersistencia, ExcepcionSuperAdminNoEncontrado {
         //Esta operacion toca una sola tabla (usuario)
         String sql = "UPDATE usuario SET nombre = ?, telefono = ?, direccion = ? WHERE id_usuario = ?";
-        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+        try (Connection con = ConexionBase.getConexion();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             ps.setString(1, superAdmin.getNombre());
@@ -133,7 +133,7 @@ public class SuperAdminDAOPersistencia implements SuperAdminDAO{
         String sql = "SELECT u.*, s.estado FROM usuario u "
                 + "INNER JOIN superadmin s ON u.id_usuario = s.id_usuario "
                 + "WHERE u.id_usuario = ?";
-        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+        try (Connection con = ConexionBase.getConexion();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             ps.setInt(1, id);
@@ -155,7 +155,7 @@ public class SuperAdminDAOPersistencia implements SuperAdminDAO{
                 + "WHERE u.nombre LIKE ? OR u.correo LIKE ? "
                 + "LIMIT ? OFFSET ?";
         List<SuperAdmin> superAdmins = new ArrayList<>();
-        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+        try (Connection con = ConexionBase.getConexion();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             //Si no viene texto de busqueda, el filtro queda como "%%",
@@ -195,7 +195,7 @@ public class SuperAdminDAOPersistencia implements SuperAdminDAO{
     @Override
     public int contarActivos() throws ExcepcionPersistencia {
         String sql = "SELECT COUNT(*) FROM superadmin WHERE estado = 'ACTIVO'";
-        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+        try (Connection con = ConexionBase.getConexion();
              PreparedStatement ps = con.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
 
@@ -213,7 +213,7 @@ public class SuperAdminDAOPersistencia implements SuperAdminDAO{
     private void cambiarEstado(int idUsuario, EstadoGeneral nuevoEstado) throws ExcepcionSuperAdminNoEncontrado, ExcepcionPersistencia {
         //Esta operacion toca una sola tabla (superadmin), no necesita transaccion
         String sql = "UPDATE superadmin SET estado = ? WHERE id_usuario = ?";
-        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+        try (Connection con = ConexionBase.getConexion();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             ps.setString(1, nuevoEstado.name());

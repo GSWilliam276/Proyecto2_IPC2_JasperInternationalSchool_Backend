@@ -6,42 +6,29 @@ package com.usac.colegio.jasperschoolbackend.utilidades;
 
 import java.sql.Connection;
 import java.sql.SQLException;
-import org.apache.tomcat.jdbc.pool.DataSource;
-import org.apache.tomcat.jdbc.pool.PoolProperties;
+import javax.naming.InitialContext;
+import javax.naming.NamingException;
+import javax.sql.DataSource;
 /**
  *
  * @author eduar
- * Singleton que administra el pool de conexiones a MySQL
+ * Entrega conexiones del pool que administra Tomcat, configurado en context.xml
+ * Al cerrar la conexion, regresa al pool en lugar de destruirse
  */
 public class ConexionBase {
-    private static final ConexionBase instancia = new ConexionBase();
 
-    private final DataSource dataSource;
-
-    private static final String URL = "jdbc:mysql://localhost:3306/sistema_colegio";
-    private static final String DRIVER = "com.mysql.cj.jdbc.Driver";
-    private static final String USUARIO = "gs_william237";
-    private static final String CONTRASENA = "59487059@";
+    //Nombre del recurso declarado en context.xml
+    private static final String RECURSO = "java:comp/env/jdbc/colegio";
 
     private ConexionBase() {
-        PoolProperties propiedades = new PoolProperties();
-        propiedades.setUrl(URL);
-        propiedades.setDriverClassName(DRIVER);
-        propiedades.setUsername(USUARIO);
-        propiedades.setPassword(CONTRASENA);
-        propiedades.setMaxActive(20);
-        propiedades.setMinIdle(5);
-        propiedades.setMaxIdle(10);
-
-        this.dataSource = new DataSource();
-        this.dataSource.setPoolProperties(propiedades);
     }
 
-    public static ConexionBase obtenerInstancia() {
-        return instancia;
-    }
-
-    public Connection getConexion() throws SQLException {
-        return dataSource.getConnection();
+    public static Connection getConexion() throws SQLException {
+        try {
+            DataSource pool = (DataSource) new InitialContext().lookup(RECURSO);
+            return pool.getConnection();
+        } catch (NamingException e) {
+            throw new SQLException("No se encontró el pool configurado en context.xml", e);
+        }
     }
 }

@@ -35,7 +35,7 @@ public class AnioLectivoDAOPersistencia implements AnioLectivoDAO {
 
         String sql = "INSERT INTO anio_lectivo (nombre, fecha_inicio, fecha_fin, estado) "
                 + "VALUES (?, ?, ?, ?)";
-        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+        try (Connection con = ConexionBase.getConexion();
             PreparedStatement ps = con.prepareStatement(sql)) {
 
             ps.setString(1, anio.getNombre());
@@ -59,7 +59,7 @@ public class AnioLectivoDAOPersistencia implements AnioLectivoDAO {
 
         String sql = "UPDATE anio_lectivo SET nombre = ?, fecha_inicio = ?, fecha_fin = ? "
                 + "WHERE id_anio_lectivo = ?";
-        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+        try (Connection con = ConexionBase.getConexion();
             PreparedStatement ps = con.prepareStatement(sql)) {
 
             ps.setString(1, anio.getNombre());
@@ -79,7 +79,7 @@ public class AnioLectivoDAOPersistencia implements AnioLectivoDAO {
     @Override
     public Optional<AnioLectivo> buscarPorId(int id) throws ExcepcionPersistencia {
         String sql = "SELECT * FROM anio_lectivo WHERE id_anio_lectivo = ?";
-        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+        try (Connection con = ConexionBase.getConexion();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             ps.setInt(1, id);
@@ -98,7 +98,7 @@ public class AnioLectivoDAOPersistencia implements AnioLectivoDAO {
     public List<AnioLectivo> listarPaginado(int pagina, int tamanoPagina, String busqueda) throws ExcepcionPersistencia {
         String sql = "SELECT * FROM anio_lectivo WHERE nombre LIKE ? LIMIT ? OFFSET ?";
         List<AnioLectivo> anios = new ArrayList<>();
-        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+        try (Connection con = ConexionBase.getConexion();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             String filtro = "%" + (busqueda == null ? "" : busqueda) + "%";
@@ -122,7 +122,7 @@ public class AnioLectivoDAOPersistencia implements AnioLectivoDAO {
         //Cerrar es irreversible solo cambia a CERRADO,
         //nunca se vuelve a ACTIVO desde aqui
         String sql = "UPDATE anio_lectivo SET estado = 'CERRADO' WHERE id_anio_lectivo = ?";
-        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+        try (Connection con = ConexionBase.getConexion();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             ps.setInt(1, id);
@@ -140,7 +140,7 @@ public class AnioLectivoDAOPersistencia implements AnioLectivoDAO {
         //Usado por Crear Seccion y otros CU que necesitan saber cual es
         //el ciclo escolar vigente en este momento
         String sql = "SELECT * FROM anio_lectivo WHERE estado = 'ACTIVO'";
-        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+        try (Connection con = ConexionBase.getConexion();
              PreparedStatement ps = con.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
 
@@ -174,7 +174,7 @@ public class AnioLectivoDAOPersistencia implements AnioLectivoDAO {
             sql += " AND id_anio_lectivo != ?";
         }
 
-        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+        try (Connection con = ConexionBase.getConexion();
             PreparedStatement ps = con.prepareStatement(sql)) {
 
             ps.setDate(1, Date.valueOf(fin));

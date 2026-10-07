@@ -25,7 +25,7 @@ public class UsuarioDAOPersistencia implements UsuarioDAO {
     @Override
     public Optional<Usuario> buscarPorId(int idUsuario) throws ExcepcionPersistencia {
         String sql = "SELECT * FROM usuario WHERE id_usuario = ?";
-        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+        try (Connection con = ConexionBase.getConexion();
             PreparedStatement ps = con.prepareStatement(sql)) {
 
             ps.setInt(1, idUsuario);
@@ -43,7 +43,7 @@ public class UsuarioDAOPersistencia implements UsuarioDAO {
     @Override
     public Optional<Usuario> buscarPorCorreo(String correo) throws ExcepcionPersistencia {
         String sql = "SELECT * FROM usuario WHERE correo = ?";
-        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+        try (Connection con = ConexionBase.getConexion();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             ps.setString(1, correo);
@@ -63,7 +63,7 @@ public class UsuarioDAOPersistencia implements UsuarioDAO {
     @Override
     public Optional<Usuario> buscarPorCui(String cui) throws ExcepcionPersistencia {
         String sql = "SELECT * FROM usuario WHERE cui = ?";
-        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+        try (Connection con = ConexionBase.getConexion();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             ps.setString(1, cui);
@@ -82,7 +82,7 @@ public class UsuarioDAOPersistencia implements UsuarioDAO {
     public boolean existeCorreo(String correo) throws ExcepcionPersistencia {
         //Se usa para validar duplicados 
         String sql = "SELECT COUNT(*) FROM usuario WHERE correo = ?";
-        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+        try (Connection con = ConexionBase.getConexion();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             ps.setString(1, correo);
@@ -97,7 +97,7 @@ public class UsuarioDAOPersistencia implements UsuarioDAO {
     @Override
     public boolean existeCui(String cui) throws ExcepcionPersistencia {
         String sql = "SELECT COUNT(*) FROM usuario WHERE cui = ?";
-        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+        try (Connection con = ConexionBase.getConexion();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             ps.setString(1, cui);
@@ -113,7 +113,7 @@ public class UsuarioDAOPersistencia implements UsuarioDAO {
     public void actualizarContrasena(int idUsuario, String nuevaContrasena) throws ExcepcionPersistencia {
         //Usado por Cambiar Contraseña (CU102) y Restablecer Contraseña (CU003)
         String sql = "UPDATE usuario SET contrasena = ? WHERE id_usuario = ?";
-        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+        try (Connection con = ConexionBase.getConexion();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             ps.setString(1, ContrasenaUtil.hashear(nuevaContrasena));
@@ -127,7 +127,7 @@ public class UsuarioDAOPersistencia implements UsuarioDAO {
     @Override
     public String determinarRol(int idUsuario) throws ExcepcionPersistencia {
         //Revisa en cada tabla hija hasta encontrar en cual vive este usuario
-        try (Connection con = ConexionBase.obtenerInstancia().getConexion()) {
+        try (Connection con = ConexionBase.getConexion()) {
             if (existeEnTabla(con, "admin", idUsuario)) {
                 return "ADMIN";
             }
