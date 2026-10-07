@@ -20,6 +20,10 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.ArrayList;
 import java.util.List;
+import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionSuperAdminNoEncontrado;
+import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionUltimoSuperAdmin;
+import jakarta.ws.rs.PUT;
+import jakarta.ws.rs.PathParam;
 /**
  *
  * @author eduar
@@ -57,6 +61,46 @@ public class SuperAdminControlador {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                     .entity(new RespuestaError("Error interno al listar los superadmins"))
                     .build();
+        }
+    }
+    
+    /** CU008 Activar SuperAdmin. */
+    @PUT
+    @Path("{id}/activar")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RolesPermitidos({"SUPERADMIN"})
+    public Response activar(@PathParam("id") int id) {
+        try {
+            superAdminDAO.activar(id);
+            return Response.noContent().build(); //204: se hizo, no hay nada que devolver
+        } catch (ExcepcionSuperAdminNoEncontrado e) {
+            return Response.status(Response.Status.NOT_FOUND)
+                    .entity(new RespuestaError(e.getMessage())).build();
+        } catch (ExcepcionPersistencia e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity(new RespuestaError("Error interno al activar el superadmin")).build();
+        }
+    }
+
+    /** CU009 Desactivar SuperAdmin. No permite desactivar al ultimo activo. */
+    @PUT
+    @Path("{id}/desactivar")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RolesPermitidos({"SUPERADMIN"})
+    public Response desactivar(@PathParam("id") int id) {
+        try {
+            superAdminDAO.desactivar(id);
+            return Response.noContent().build();
+        } catch (ExcepcionSuperAdminNoEncontrado e) {
+            return Response.status(Response.Status.NOT_FOUND)
+                    .entity(new RespuestaError(e.getMessage())).build();
+        } catch (ExcepcionUltimoSuperAdmin e) {
+            //409: la peticion es valida, pero choca con una regla de negocio
+            return Response.status(Response.Status.CONFLICT)
+                    .entity(new RespuestaError(e.getMessage())).build();
+        } catch (ExcepcionPersistencia e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity(new RespuestaError("Error interno al desactivar el superadmin")).build();
         }
     }
 }
