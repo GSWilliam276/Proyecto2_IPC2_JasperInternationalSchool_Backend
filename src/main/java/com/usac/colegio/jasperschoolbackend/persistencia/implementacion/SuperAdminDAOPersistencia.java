@@ -184,12 +184,79 @@ public class SuperAdminDAOPersistencia implements SuperAdminDAO{
 
     @Override
     public void desactivar(int idUsuario) throws ExcepcionSuperAdminNoEncontrado, ExcepcionUltimoSuperAdmin, ExcepcionPersistencia {
-        //Siempre debe existir al menos un SuperAdmin activo en el sistema 
-        //Se valida antes de desactivar, no despues, para no dejar el sistema en un estado invalido
-        if (contarActivos() <= 1) {
-            throw new ExcepcionUltimoSuperAdmin("No se puede desactivar al único SuperAdmin activo del sistema");
+        Connection con = null;
+        try {
+            con = ConexionBase.getConexion();
+            con.setAutoCommit(false); //Inicio de la transaccion
+
+            int activos = 0;
+            boolean existe = false;
+            boolean objetivoActivo = false;
+
+            //FOR UPDATE bloquea estas filas: otra peticion que intente lo mismo
+            //espera hasta que esta transaccion termine
+            String sqlBloqueo = "SELECT id_usuario, estado FROM superadmin FOR UPDATE";
+            try (PreparedStatement ps = con.prepareStatement(sqlBloqueo);
+                 ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    boolean activo = "ACTIVO".equals(rs.getString("estado"));
+                    if (activo) {
+                        activos++;
+                    }
+                    if (rs.getInt("id_usuario") == idUsuario) {
+                        existe = true;
+                        objetivoActivo = activo;
+                    }
+                }
+            }
+
+            if (!existe) {
+                con.rollback();
+                throw new ExcepcionSuperAdminNoEncontrado("No existe un superadmin con ese id");
+            }
+            //la regla solo aplica si el que se desactiva esta activo
+            if (objetivoActivo && activos <= 1) {
+                con.rollback();
+                throw new ExcepcionUltimoSuperAdmin("No se puede desactivar al único SuperAdmin activo del sistema");
+            }
+
+            try (PreparedStatement ps = con.prepareStatement(
+                    "UPDATE superadmin SET estado = 'INACTIVO' WHERE id_usuario = ?")) {
+                ps.setInt(1, idUsuario);
+                ps.executeUpdate();
+            }
+
+            con.commit(); //la validacion y el cambio quedaron como una sola operacion
+
+        } catch (SQLException e) {
+            deshacer(con);
+            throw new ExcepcionPersistencia("Error al desactivar el superadmin", e);
+        } finally {
+            cerrar(con);
         }
-        cambiarEstado(idUsuario, EstadoGeneral.INACTIVO);
+    }
+
+    //Metodo de apoyo para las transacciones 
+
+    private void deshacer(Connection con) {
+        if (con != null) {
+            try {
+                con.rollback();
+            } catch (SQLException ignorada) {
+                //si el rollback falla, la conexion se cierra de todos modos
+            }
+        }
+    }
+
+    private void cerrar(Connection con) {
+        if (con != null) {
+            try {
+                con.setAutoCommit(true); //se deja la conexion en su estado normal antes de devolverla al pool
+                con.close();
+            } catch (SQLException ignorada) {
+                //nada que hacer: la conexion ya no se usa
+            }
+        }
     }
 
     @Override
