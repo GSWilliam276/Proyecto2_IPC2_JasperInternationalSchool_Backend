@@ -30,6 +30,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 /**
  *
  * @author eduar
@@ -88,9 +89,16 @@ public class GradoControlador {
             return error(Response.Status.BAD_REQUEST, problema);
         }
         try {
-            //El DAO solo actualiza nombre y nivel, el estado de este objeto no se usa
+            Optional<Grado> actual = gradoDAO.buscarPorId(id);
+            if (actual.isEmpty()) {
+                return error(Response.Status.NOT_FOUND, "No existe un grado con ese id");
+            }
+            //el nivel se fija al crear: cambiarlo dejaria incoherente todo lo que se arme sobre el grado
+            if (actual.get().getNivel() != Nivel.valueOf(solicitud.getNivel())) {
+                return error(Response.Status.CONFLICT, "El nivel de un grado no se puede cambiar");
+            }
             Grado editado = new Grado(id, solicitud.getNombre().trim(),
-                    Nivel.valueOf(solicitud.getNivel()), EstadoGeneral.ACTIVO);
+                    actual.get().getNivel(), actual.get().getEstado());
             gradoDAO.editar(editado);
             return Response.noContent().build();
         } catch (ExcepcionGradoNoEncontrado e) {
