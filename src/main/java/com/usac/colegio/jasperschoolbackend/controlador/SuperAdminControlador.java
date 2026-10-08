@@ -30,6 +30,7 @@ import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.PathParam;
+import com.usac.colegio.jasperschoolbackend.transferencia.ValidacionUsuario;
 /**
  *
  * @author eduar
@@ -117,7 +118,7 @@ public class SuperAdminControlador {
     @RolesPermitidos({"SUPERADMIN"})
     public Response crear(SolicitudCrearUsuario solicitud) {
         //validacion en el backend: nunca se confia solo en el formulario de Angular
-        String problema = validar(solicitud);
+        String problema = ValidacionUsuario.validar(solicitud);
         if (problema != null) {
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity(new RespuestaError(problema)).build();
@@ -141,36 +142,5 @@ public class SuperAdminControlador {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                     .entity(new RespuestaError("Error interno al crear el superadmin")).build();
         }
-    }
-
-    //Validacion de la solicitud 
-
-    private String validar(SolicitudCrearUsuario s) {
-        if (s == null || vacio(s.getCui()) || vacio(s.getNombre()) || vacio(s.getCorreo())
-                || vacio(s.getTelefono()) || vacio(s.getDireccion()) || vacio(s.getContrasena())) {
-            return "Todos los campos son obligatorios";
-        }
-        if (!s.getCui().trim().matches("\\d{13}")) {
-            return "El CUI debe tener exactamente 13 dígitos";
-        }
-        if (!s.getCorreo().trim().matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
-            return "El correo no tiene un formato válido";
-        }
-        if (!s.getTelefono().trim().matches("\\d{8,15}")) {
-            return "El teléfono debe tener entre 8 y 15 dígitos";
-        }
-        if (s.getNombre().trim().length() > 100 || s.getCorreo().trim().length() > 100
-                || s.getDireccion().trim().length() > 100) {
-            return "Nombre, correo y dirección no pueden pasar de 100 caracteres";
-        }
-        //el maximo de 64 evita el limite de 72 bytes de BCrypt
-        if (s.getContrasena().length() < 8 || s.getContrasena().length() > 64) {
-            return "La contraseña debe tener entre 8 y 64 caracteres";
-        }
-        return null; //todo bien
-    }
-
-    private boolean vacio(String texto) {
-        return texto == null || texto.isBlank();
     }
 }
