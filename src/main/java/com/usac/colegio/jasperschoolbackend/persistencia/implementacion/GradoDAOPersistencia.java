@@ -33,7 +33,7 @@ public class GradoDAOPersistencia implements GradoDAO {
         }
 
         String sql = "INSERT INTO grado (nombre, nivel, estado) VALUES (?, ?, ?)";
-        try (Connection con = ConexionBase.getConexion();
+        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             ps.setString(1, grado.getNombre());
@@ -53,7 +53,7 @@ public class GradoDAOPersistencia implements GradoDAO {
         }
 
         String sql = "UPDATE grado SET nombre = ?, nivel = ? WHERE id_grado = ?";
-        try (Connection con = ConexionBase.getConexion();
+        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             ps.setString(1, grado.getNombre());
@@ -72,7 +72,7 @@ public class GradoDAOPersistencia implements GradoDAO {
     @Override
     public Optional<Grado> buscarPorId(int id) throws ExcepcionPersistencia {
         String sql = "SELECT * FROM grado WHERE id_grado = ?";
-        try (Connection con = ConexionBase.getConexion();
+        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             ps.setInt(1, id);
@@ -91,7 +91,7 @@ public class GradoDAOPersistencia implements GradoDAO {
     public List<Grado> listarPaginado(int pagina, int tamanoPagina, String busqueda) throws ExcepcionPersistencia {
         String sql = "SELECT * FROM grado WHERE nombre LIKE ? LIMIT ? OFFSET ?";
         List<Grado> grados = new ArrayList<>();
-        try (Connection con = ConexionBase.getConexion();
+        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             String filtro = "%" + (busqueda == null ? "" : busqueda) + "%";
@@ -128,7 +128,7 @@ public class GradoDAOPersistencia implements GradoDAO {
 
     private void cambiarEstado(int id, EstadoGeneral nuevoEstado) throws ExcepcionGradoNoEncontrado, ExcepcionPersistencia {
         String sql = "UPDATE grado SET estado = ? WHERE id_grado = ?";
-        try (Connection con = ConexionBase.getConexion();
+        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             ps.setString(1, nuevoEstado.name());
@@ -149,7 +149,7 @@ public class GradoDAOPersistencia implements GradoDAO {
             sql += " AND id_grado != ?";
         }
 
-        try (Connection con = ConexionBase.getConexion();
+        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             ps.setString(1, nombre);

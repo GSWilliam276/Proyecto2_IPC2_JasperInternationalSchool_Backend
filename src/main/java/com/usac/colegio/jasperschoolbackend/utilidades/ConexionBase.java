@@ -12,23 +12,31 @@ import javax.sql.DataSource;
 /**
  *
  * @author eduar
- * Entrega conexiones del pool que administra Tomcat, configurado en context.xml
- * Al cerrar la conexion, regresa al pool en lugar de destruirse
+ * Singleton que guarda el DataSource del pool que administra Tomcat (context.xml).
+ * El pool se obtiene por JNDI una sola vez; cada getConexion() presta una conexion.
  */
 public class ConexionBase {
 
-    //Nombre del recurso declarado en context.xml
     private static final String RECURSO = "java:comp/env/jdbc/colegio";
 
+    //Se crea al cargar la clase: Java garantiza que eso es seguro entre hilos
+    private static final ConexionBase instancia = new ConexionBase();
+
+    private final DataSource pool;
+
     private ConexionBase() {
+        try {
+            pool = (DataSource) new InitialContext().lookup(RECURSO);
+        } catch (NamingException e) {
+            throw new IllegalStateException("No se pudo resolver el DataSource JNDI: " + RECURSO, e);
+        }
     }
 
-    public static Connection getConexion() throws SQLException {
-        try {
-            DataSource pool = (DataSource) new InitialContext().lookup(RECURSO);
-            return pool.getConnection();
-        } catch (NamingException e) {
-            throw new SQLException("No se encontró el pool configurado en context.xml", e);
-        }
+    public static ConexionBase obtenerInstancia() {
+        return instancia;
+    }
+
+    public Connection getConexion() throws SQLException {
+        return pool.getConnection();
     }
 }

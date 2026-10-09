@@ -8,4 +8,34 @@
             30
         </session-timeout>
     </session-config>
+
+    <!-- Pool de conexiones MySQL: el nombre coincide con el Resource de context.xml -->
+    <resource-ref>
+        <description>Pool de conexiones MySQL del colegio</description>
+        <res-ref-name>jdbc/colegio</res-ref-name>
+        <res-type>javax.sql.DataSource</res-type>
+        <res-auth>Container</res-auth>
+    </resource-ref>
+
+    <!-- CORS: permite que el frontend de Angular consuma la API -->
+    <filter>
+        <filter-name>CorsFilter</filter-name>
+        <filter-class>org.apache.catalina.filters.CorsFilter</filter-class>
+        <init-param>
+            <param-name>cors.allowed.origins</param-name>
+            <param-value>http://localhost:4200</param-value>
+        </init-param>
+        <init-param>
+            <param-name>cors.allowed.methods</param-name>
+            <param-value>GET,POST,PUT,DELETE,OPTIONS</param-value>
+        </init-param>
+        <init-param>
+            <param-name>cors.allowed.headers</param-name>
+            <param-value>Content-Type,Authorization,Accept,Origin</param-value>
+        </init-param>
+    </filter>
+    <filter-mapping>
+        <filter-name>CorsFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
 </web-app>

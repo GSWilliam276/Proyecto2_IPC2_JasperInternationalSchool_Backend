@@ -35,7 +35,7 @@ public class AdminDAOPersistencia implements AdminDAO{
 
         Connection con = null;
         try {
-            con = ConexionBase.getConexion();
+            con = ConexionBase.obtenerInstancia().getConexion();
             con.setAutoCommit(false); //Arranca la transaccion
 
             //1. Insertar en usuario, pidiendo que devuelva el id generado
@@ -97,7 +97,7 @@ public class AdminDAOPersistencia implements AdminDAO{
     public void editar(Admin admin) throws ExcepcionPersistencia, ExcepcionAdminNoEncontrado {
         //Solo se editan los datos de usuario; el estado se maneja aparte con activar/desactivar
         String sql = "UPDATE usuario SET nombre = ?, telefono = ?, direccion = ? WHERE id_usuario = ?";
-        try (Connection con = ConexionBase.getConexion();
+        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             ps.setString(1, admin.getNombre());
@@ -119,7 +119,7 @@ public class AdminDAOPersistencia implements AdminDAO{
         String sql = "SELECT u.*, a.estado FROM usuario u "
                 + "INNER JOIN admin a ON u.id_usuario = a.id_usuario "
                 + "WHERE u.id_usuario = ?";
-        try (Connection con = ConexionBase.getConexion();
+        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             ps.setInt(1, id);
@@ -141,7 +141,7 @@ public class AdminDAOPersistencia implements AdminDAO{
                 + "WHERE u.nombre LIKE ? OR u.correo LIKE ? "
                 + "LIMIT ? OFFSET ?";
         List<Admin> admins = new ArrayList<>();
-        try (Connection con = ConexionBase.getConexion();
+        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             String filtro = "%" + (busqueda == null ? "" : busqueda) + "%";
@@ -175,7 +175,7 @@ public class AdminDAOPersistencia implements AdminDAO{
     
     private void cambiarEstado(int idUsuario, EstadoGeneral nuevoEstado) throws ExcepcionAdminNoEncontrado, ExcepcionPersistencia {
         String sql = "UPDATE admin SET estado = ? WHERE id_usuario = ?";
-        try (Connection con = ConexionBase.getConexion();
+        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             ps.setString(1, nuevoEstado.name());

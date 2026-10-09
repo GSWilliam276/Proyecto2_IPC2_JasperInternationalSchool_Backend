@@ -85,7 +85,7 @@
             <version>0.10.2</version>
         </dependency>
 
-        <!-- JWT: esperando confirmacion -->
+        <!-- JWT -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-api</artifactId>
@@ -102,6 +102,12 @@
             <artifactId>jjwt-jackson</artifactId>
             <version>0.12.7</version>
             <scope>runtime</scope>
+        </dependency>
+        <!-- utilitarios -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>3.18.0</version>
         </dependency>
     </dependencies>
 

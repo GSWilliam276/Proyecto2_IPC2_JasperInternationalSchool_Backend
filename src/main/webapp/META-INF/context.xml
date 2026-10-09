@@ -11,5 +11,9 @@
               password="59487059@"
               maxActive="20"
               maxIdle="10"
-              minIdle="5"/>
+              minIdle="5"
+              initialSize="5"
+              maxWait="10000"
+              testOnBorrow="true"
+              validationQuery="SELECT 1"/>
 </Context>

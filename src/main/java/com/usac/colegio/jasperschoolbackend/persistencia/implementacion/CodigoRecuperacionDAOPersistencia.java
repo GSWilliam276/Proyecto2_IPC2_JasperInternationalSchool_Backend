@@ -29,7 +29,7 @@ public class CodigoRecuperacionDAOPersistencia implements CodigoRecuperacionDAO 
     public void generar(int idUsuario, String codigo, LocalDateTime expiracion) throws ExcepcionPersistencia {
         String sql = "INSERT INTO codigo_recuperacion (id_usuario, codigo, fecha_creacion, fecha_expiracion, fue_usado) "
                 + "VALUES (?, ?, ?, ?, ?)";
-        try (Connection con = ConexionBase.getConexion();
+        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             ps.setInt(1, idUsuario);
@@ -50,7 +50,7 @@ public class CodigoRecuperacionDAOPersistencia implements CodigoRecuperacionDAO 
         //es posterior al momento actual
         String sql = "SELECT * FROM codigo_recuperacion "
                 + "WHERE id_usuario = ? AND codigo = ? AND fue_usado = FALSE AND fecha_expiracion > ?";
-        try (Connection con = ConexionBase.getConexion();
+        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             ps.setInt(1, idUsuario);
@@ -73,7 +73,7 @@ public class CodigoRecuperacionDAOPersistencia implements CodigoRecuperacionDAO 
     @Override
     public void marcarComoUsado(int idCodigo) throws ExcepcionPersistencia {
         String sql = "UPDATE codigo_recuperacion SET fue_usado = TRUE WHERE id_codigo_recuperacion = ?";
-        try (Connection con = ConexionBase.getConexion();
+        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             ps.setInt(1, idCodigo);
