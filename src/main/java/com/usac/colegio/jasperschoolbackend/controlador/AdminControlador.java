@@ -16,6 +16,7 @@ import com.usac.colegio.jasperschoolbackend.seguridad.RolesPermitidos;
 import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaError;
 import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaUsuario;
 import com.usac.colegio.jasperschoolbackend.transferencia.SolicitudCrearUsuario;
+import com.usac.colegio.jasperschoolbackend.transferencia.SolicitudEditarUsuario;
 import com.usac.colegio.jasperschoolbackend.transferencia.ValidacionUsuario;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DefaultValue;
@@ -30,6 +31,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 /**
  *
  * @author eduar
@@ -105,6 +107,33 @@ public class AdminControlador {
             return error(Response.Status.NOT_FOUND, e.getMessage());
         } catch (ExcepcionPersistencia e) {
             return error(Response.Status.INTERNAL_SERVER_ERROR, "Error interno al desactivar el administrador");
+        }
+    }
+    
+    @PUT
+    @Path("{id}")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response editar(@PathParam("id") int id, SolicitudEditarUsuario solicitud) {
+        String problema = ValidacionUsuario.validarEdicion(solicitud);
+        if (problema != null) {
+            return error(Response.Status.BAD_REQUEST, problema);
+        }
+        try {
+            Optional<Admin> actual = adminDAO.buscarPorId(id);
+            if (actual.isEmpty()) {
+                return error(Response.Status.NOT_FOUND, "No existe un administrador con ese id");
+            }
+            //Se conservan CUI, correo, contraseña y estado: solo cambian los tres campos editables
+            Admin a = actual.get();
+            Admin editado = new Admin(id, a.getCui(), solicitud.getNombre().trim(), a.getCorreo(),
+                    solicitud.getTelefono().trim(), solicitud.getDireccion().trim(),
+                    a.getContrasena(), a.getEstado());
+            adminDAO.editar(editado);
+            return Response.noContent().build();
+        } catch (ExcepcionAdminNoEncontrado e) {
+            return error(Response.Status.NOT_FOUND, e.getMessage());
+        } catch (ExcepcionPersistencia e) {
+            return error(Response.Status.INTERNAL_SERVER_ERROR, "Error interno al editar el administrador");
         }
     }
 

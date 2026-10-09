@@ -26,11 +26,13 @@ import java.util.List;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionSuperAdminNoEncontrado;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionUltimoSuperAdmin;
 import com.usac.colegio.jasperschoolbackend.transferencia.SolicitudCrearUsuario;
+import com.usac.colegio.jasperschoolbackend.transferencia.SolicitudEditarUsuario;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.PathParam;
 import com.usac.colegio.jasperschoolbackend.transferencia.ValidacionUsuario;
+import java.util.Optional;
 /**
  *
  * @author eduar
@@ -141,6 +143,36 @@ public class SuperAdminControlador {
         } catch (ExcepcionPersistencia e) {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                     .entity(new RespuestaError("Error interno al crear el superadmin")).build();
+        }
+    }
+    
+    @PUT
+    @Path("{id}")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    @RolesPermitidos({"SUPERADMIN"})
+    public Response editar(@PathParam("id") int id, SolicitudEditarUsuario solicitud) {
+        String problema = ValidacionUsuario.validarEdicion(solicitud);
+        if (problema != null) {
+            return Response.status(Response.Status.BAD_REQUEST).entity(new RespuestaError(problema)).build();
+        }
+        try {
+            Optional<SuperAdmin> actual = superAdminDAO.buscarPorId(id);
+            if (actual.isEmpty()) {
+                return Response.status(Response.Status.NOT_FOUND)
+                        .entity(new RespuestaError("No existe un superadmin con ese id")).build();
+            }
+            SuperAdmin s = actual.get();
+            SuperAdmin editado = new SuperAdmin(id, s.getCui(), solicitud.getNombre().trim(), s.getCorreo(),
+                    solicitud.getTelefono().trim(), solicitud.getDireccion().trim(),
+                    s.getContrasena(), s.getEstado());
+            superAdminDAO.editar(editado);
+            return Response.noContent().build();
+        } catch (ExcepcionSuperAdminNoEncontrado e) {
+            return Response.status(Response.Status.NOT_FOUND).entity(new RespuestaError(e.getMessage())).build();
+        } catch (ExcepcionPersistencia e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity(new RespuestaError("Error interno al editar el superadmin")).build();
         }
     }
 }

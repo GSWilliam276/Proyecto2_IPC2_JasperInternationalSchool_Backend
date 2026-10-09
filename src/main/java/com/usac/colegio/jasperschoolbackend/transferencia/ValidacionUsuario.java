@@ -43,4 +43,18 @@ public class ValidacionUsuario {
     private static boolean vacio(String texto) {
         return texto == null || texto.isBlank();
     }
+    
+    ///Valida los datos de una edicion. Devuelve el mensaje del problema, o null si todo esta bien
+    public static String validarEdicion(SolicitudEditarUsuario s) {
+        if (s == null || vacio(s.getNombre()) || vacio(s.getTelefono()) || vacio(s.getDireccion())) {
+            return "Todos los campos son obligatorios";
+        }
+        if (!s.getTelefono().trim().matches("\\d{8,15}")) {
+            return "El teléfono debe tener entre 8 y 15 dígitos";
+        }
+        if (s.getNombre().trim().length() > 100 || s.getDireccion().trim().length() > 100) {
+            return "Nombre y dirección no pueden pasar de 100 caracteres";
+        }
+        return null;
+    }
 }
