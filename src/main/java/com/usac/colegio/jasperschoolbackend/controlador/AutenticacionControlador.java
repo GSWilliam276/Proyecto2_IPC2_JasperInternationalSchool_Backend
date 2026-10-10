@@ -23,6 +23,10 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.Optional;
 import com.usac.colegio.jasperschoolbackend.seguridad.Publico;
+import com.usac.colegio.jasperschoolbackend.transferencia.SolicitudCambiarContrasena;
+import jakarta.ws.rs.PUT;
+import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.core.Context;
 /**
  *
  * @author eduar
@@ -76,6 +80,45 @@ public class AutenticacionControlador {
         }
     }
 
+    /** CU102 Cambiar Contraseña. Cualquier rol con sesion valida */
+    @PUT
+    @Path("contrasena")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response cambiarContrasena(SolicitudCambiarContrasena solicitud,
+                                      @Context ContainerRequestContext peticion) {
+        if (solicitud == null || solicitud.getContrasenaActual() == null || solicitud.getContrasenaActual().isBlank()
+                || solicitud.getContrasenaNueva() == null || solicitud.getContrasenaNueva().isBlank()) {
+            return respuestaError(Response.Status.BAD_REQUEST, "Todos los campos son obligatorios");
+        }
+        String nueva = solicitud.getContrasenaNueva();
+        // el maximo de 64 evita el limite de 72 bytes de BCrypt
+        if (nueva.length() < 8 || nueva.length() > 64) {
+            return respuestaError(Response.Status.BAD_REQUEST, "La contraseña nueva debe tener entre 8 y 64 caracteres");
+        }
+        if (nueva.equals(solicitud.getContrasenaActual())) {
+            return respuestaError(Response.Status.BAD_REQUEST, "La contraseña nueva debe ser distinta de la actual");
+        }
+
+        // el id viene del token que valido el filtro, no de lo que mande el navegador
+        int idUsuario = (Integer) peticion.getProperty("idUsuario");
+
+        try {
+            Optional<Usuario> usuario = usuarioDAO.buscarPorId(idUsuario);
+            if (usuario.isEmpty()) {
+                return respuestaError(Response.Status.NOT_FOUND, "No existe el usuario");
+            }
+            // 400 y no 401: un 401 haria que Angular cierre la sesion por un simple error de tipeo
+            if (!usuario.get().validarContrasena(solicitud.getContrasenaActual())) {
+                return respuestaError(Response.Status.BAD_REQUEST, "La contraseña actual no es correcta");
+            }
+            usuarioDAO.actualizarContrasena(idUsuario, nueva); // el DAO la guarda con hash
+            return Response.noContent().build();
+        } catch (ExcepcionPersistencia e) {
+            return respuestaError(Response.Status.INTERNAL_SERVER_ERROR, "Error interno al cambiar la contraseña");
+        }
+    }
+    
     //Metodos Privados de Apoyo
 
     private Response respuestaNoAutenticado(String mensaje) {
@@ -99,5 +142,9 @@ public class AutenticacionControlador {
             return "SUPERADMIN";
         }
         return "ADMIN";
+    }
+
+    private Response respuestaError(Response.Status estado, String mensaje) {
+        return Response.status(estado).entity(new RespuestaError(mensaje)).build();
     }
 }
