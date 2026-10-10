@@ -4,12 +4,15 @@
  */
 package com.usac.colegio.jasperschoolbackend.controlador;
 
+import com.usac.colegio.jasperschoolbackend.correo.EnviadorCorreo;
 import com.usac.colegio.jasperschoolbackend.enums.EstadoGeneral;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionPersistencia;
 import com.usac.colegio.jasperschoolbackend.modelo.Admin;
+import com.usac.colegio.jasperschoolbackend.modelo.CodigoRecuperacion;
 import com.usac.colegio.jasperschoolbackend.modelo.SuperAdmin;
 import com.usac.colegio.jasperschoolbackend.modelo.Usuario;
 import com.usac.colegio.jasperschoolbackend.persistencia.implementacion.UsuarioDAOPersistencia;
+import com.usac.colegio.jasperschoolbackend.persistencia.interfaces.CodigoRecuperacionDAO;
 import com.usac.colegio.jasperschoolbackend.persistencia.interfaces.UsuarioDAO;
 import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaError;
 import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaInicioSesion;
@@ -23,10 +26,17 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.Optional;
 import com.usac.colegio.jasperschoolbackend.seguridad.Publico;
+import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaMensaje;
 import com.usac.colegio.jasperschoolbackend.transferencia.SolicitudCambiarContrasena;
+import com.usac.colegio.jasperschoolbackend.transferencia.SolicitudRecuperacion;
+import com.usac.colegio.jasperschoolbackend.transferencia.SolicitudRestablecer;
+import com.usac.colegio.jasperschoolbackend.utilidades.GeneradorCodigo;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Context;
+import java.time.LocalDateTime;
+import com.usac.colegio.jasperschoolbackend.persistencia.implementacion.CodigoRecuperacionDAOPersistencia;
+import com.usac.colegio.jasperschoolbackend.correo.EnviadorCorreoConsola;
 /**
  *
  * @author eduar
@@ -36,6 +46,8 @@ import jakarta.ws.rs.core.Context;
 @Path("auth")
 public class AutenticacionControlador {
     private final UsuarioDAO usuarioDAO = new UsuarioDAOPersistencia();
+    private final CodigoRecuperacionDAO codigoDAO = new CodigoRecuperacionDAOPersistencia();
+    private final EnviadorCorreo enviadorCorreo = new EnviadorCorreoConsola();
 
     @POST
     @Path("login")
@@ -116,6 +128,70 @@ public class AutenticacionControlador {
             return Response.noContent().build();
         } catch (ExcepcionPersistencia e) {
             return respuestaError(Response.Status.INTERNAL_SERVER_ERROR, "Error interno al cambiar la contraseña");
+        }
+    }
+    
+    /** CU002 Solicitar Codigo de Recuperacion. Responde lo mismo exista o no el correo */
+    @POST
+    @Path("recuperacion/solicitar")
+    @Publico
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response solicitarCodigo(SolicitudRecuperacion solicitud) {
+        if (solicitud == null || solicitud.getCorreo() == null || solicitud.getCorreo().isBlank()) {
+            return respuestaError(Response.Status.BAD_REQUEST, "El correo es obligatorio");
+        }
+        try {
+            Optional<Usuario> encontrado = usuarioDAO.buscarPorCorreo(solicitud.getCorreo().trim());
+            if (encontrado.isPresent() && estaActivo(encontrado.get())) {
+                Usuario usuario = encontrado.get();
+                String codigo = GeneradorCodigo.generar();
+                codigoDAO.generar(usuario.getIdUsuario(), codigo, LocalDateTime.now().plusMinutes(15));
+                enviadorCorreo.enviarCodigoRecuperacion(usuario.getCorreo(), usuario.getNombre(), codigo);
+            }
+            //Misma respuesta en los dos casos: no se revela que correos estan registrados
+            return Response.ok(new RespuestaMensaje(
+                    "Si el correo está registrado, recibirá un código de recuperación")).build();
+        } catch (ExcepcionPersistencia e) {
+            return respuestaError(Response.Status.INTERNAL_SERVER_ERROR, "Error interno al solicitar el código");
+        }
+    }
+
+    /** CU003 Restablecer Contraseña con el codigo recibido */
+    @POST
+    @Path("recuperacion/restablecer")
+    @Publico
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response restablecerContrasena(SolicitudRestablecer solicitud) {
+        if (solicitud == null || solicitud.getCorreo() == null || solicitud.getCorreo().isBlank()
+                || solicitud.getCodigo() == null || solicitud.getCodigo().isBlank()
+                || solicitud.getContrasenaNueva() == null || solicitud.getContrasenaNueva().isBlank()) {
+            return respuestaError(Response.Status.BAD_REQUEST, "Todos los campos son obligatorios");
+        }
+        String nueva = solicitud.getContrasenaNueva();
+        if (nueva.length() < 8 || nueva.length() > 64) {
+            return respuestaError(Response.Status.BAD_REQUEST, "La contraseña nueva debe tener entre 8 y 64 caracteres");
+        }
+        try {
+            Optional<Usuario> usuario = usuarioDAO.buscarPorCorreo(solicitud.getCorreo().trim());
+            //Mismo mensaje si el correo no existe, la cuenta esta inactiva o el codigo no sirve
+            if (usuario.isEmpty() || !estaActivo(usuario.get())) {
+                return respuestaError(Response.Status.BAD_REQUEST, "Código inválido o vencido");
+            }
+            String codigo = solicitud.getCodigo().trim().toUpperCase();
+            Optional<CodigoRecuperacion> vigente = codigoDAO.buscarVigente(usuario.get().getIdUsuario(), codigo);
+            if (vigente.isEmpty()) {
+                return respuestaError(Response.Status.BAD_REQUEST, "Código inválido o vencido");
+            }
+            //Primero se marca como usado y despues se cambia la contraseña: si algo fallara
+            //entre las dos, el codigo ya no sirve y la persona pide uno nuevo, en vez de
+            //quedar un codigo reutilizable
+            codigoDAO.marcarComoUsado(vigente.get().getIdCodigoRecuperacion());
+            usuarioDAO.actualizarContrasena(usuario.get().getIdUsuario(), nueva);
+            return Response.noContent().build();
+        } catch (ExcepcionPersistencia e) {
+            return respuestaError(Response.Status.INTERNAL_SERVER_ERROR, "Error interno al restablecer la contraseña");
         }
     }
     
