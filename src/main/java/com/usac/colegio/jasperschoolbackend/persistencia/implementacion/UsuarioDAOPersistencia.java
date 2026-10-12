@@ -7,6 +7,9 @@ package com.usac.colegio.jasperschoolbackend.persistencia.implementacion;
 import com.usac.colegio.jasperschoolbackend.enums.EstadoGeneral;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionPersistencia;
 import com.usac.colegio.jasperschoolbackend.modelo.Admin;
+import com.usac.colegio.jasperschoolbackend.modelo.Bibliotecario;
+import com.usac.colegio.jasperschoolbackend.modelo.Maestro;
+import com.usac.colegio.jasperschoolbackend.modelo.Secretaria;
 import com.usac.colegio.jasperschoolbackend.modelo.SuperAdmin;
 import com.usac.colegio.jasperschoolbackend.modelo.Usuario;
 import com.usac.colegio.jasperschoolbackend.persistencia.interfaces.UsuarioDAO;
@@ -163,6 +166,21 @@ public class UsuarioDAOPersistencia implements UsuarioDAO {
         EstadoGeneral estadoSuperAdmin = buscarEstado(con, "superadmin", idUsuario);
         if (estadoSuperAdmin != null) {
             return new SuperAdmin(idUsuario, cui, nombre, correo, telefono, direccion, contrasena, estadoSuperAdmin);
+        }
+        
+        EstadoGeneral estadoMaestro = buscarEstado(con, "maestro", idUsuario);
+        if (estadoMaestro != null) {
+            return new Maestro(idUsuario, cui, nombre, correo, telefono, direccion, contrasena, estadoMaestro);
+        }
+
+        EstadoGeneral estadoSecretaria = buscarEstado(con, "secretaria", idUsuario);
+        if (estadoSecretaria != null) {
+            return new Secretaria(idUsuario, cui, nombre, correo, telefono, direccion, contrasena, estadoSecretaria);
+        }
+
+        EstadoGeneral estadoBibliotecario = buscarEstado(con, "bibliotecario", idUsuario);
+        if (estadoBibliotecario != null) {
+            return new Bibliotecario(idUsuario, cui, nombre, correo, telefono, direccion, contrasena, estadoBibliotecario);
         }
 
         //Si llega aca, hay una fila en usuario sin fila correspondiente en ninguna

@@ -37,6 +37,9 @@ import jakarta.ws.rs.core.Context;
 import java.time.LocalDateTime;
 import com.usac.colegio.jasperschoolbackend.persistencia.implementacion.CodigoRecuperacionDAOPersistencia;
 import com.usac.colegio.jasperschoolbackend.correo.EnviadorCorreoConsola;
+import com.usac.colegio.jasperschoolbackend.modelo.Bibliotecario;
+import com.usac.colegio.jasperschoolbackend.modelo.Maestro;
+import com.usac.colegio.jasperschoolbackend.modelo.Secretaria;
 /**
  *
  * @author eduar
@@ -203,21 +206,26 @@ public class AutenticacionControlador {
                 .build();
     }
 
+    private EstadoGeneral estadoDe(Usuario usuario) {
+        if (usuario instanceof Admin a) return a.getEstado();
+        if (usuario instanceof SuperAdmin s) return s.getEstado();
+        if (usuario instanceof Maestro m) return m.getEstado();
+        if (usuario instanceof Secretaria sec) return sec.getEstado();
+        if (usuario instanceof Bibliotecario b) return b.getEstado();
+        return null;
+    }
+
     private boolean estaActivo(Usuario usuario) {
-        if (usuario instanceof Admin admin) {
-            return admin.getEstado() == EstadoGeneral.ACTIVO;
-        }
-        if (usuario instanceof SuperAdmin superAdmin) {
-            return superAdmin.getEstado() == EstadoGeneral.ACTIVO;
-        }
-        return false;
+        return estadoDe(usuario) == EstadoGeneral.ACTIVO;
     }
 
     private String obtenerRol(Usuario usuario) {
-        if (usuario instanceof SuperAdmin) {
-            return "SUPERADMIN";
-        }
-        return "ADMIN";
+        if (usuario instanceof SuperAdmin) return "SUPERADMIN";
+        if (usuario instanceof Admin) return "ADMIN";
+        if (usuario instanceof Maestro) return "MAESTRO";
+        if (usuario instanceof Secretaria) return "SECRETARIA";
+        if (usuario instanceof Bibliotecario) return "BIBLIOTECARIO";
+        throw new IllegalStateException("Tipo de usuario sin rol definido");
     }
 
     private Response respuestaError(Response.Status estado, String mensaje) {
