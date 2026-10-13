@@ -54,6 +54,9 @@ public abstract class Usuario {
     public void setContrasena(String contrasena) { this.contrasena = contrasena; }
 
     public boolean validarContrasena(String intentada) {
-        return ContrasenaUtil.verificar(intentada, this.contrasena);
+        if (contrasena == null || intentada == null) {
+            return false; //Sin contraseña guardada no hay acceso
+        }
+        return ContrasenaUtil.verificar(intentada, contrasena);
     }
 }

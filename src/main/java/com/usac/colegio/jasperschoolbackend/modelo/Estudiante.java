@@ -24,7 +24,6 @@ public class Estudiante extends Usuario {
     private String encargado2Telefono;
     private String encargado2Parentesco;
     private EstadoEstudiante estado;
-    private boolean accesoHabilitado;
 
     public Estudiante(int idUsuario, String cui, String nombre, String correo, String telefono,
                       String direccion, String contrasena, LocalDate fechaNacimiento,
@@ -43,7 +42,6 @@ public class Estudiante extends Usuario {
         this.encargado2Telefono = encargado2Telefono;
         this.encargado2Parentesco = encargado2Parentesco;
         this.estado = estado;
-        this.accesoHabilitado = accesoHabilitado;
     }
 
     //Verdadero si los tres datos del segundo encargado vienen llenos
@@ -95,6 +93,4 @@ public class Estudiante extends Usuario {
     public EstadoEstudiante getEstado() { return estado; }
     public void setEstado(EstadoEstudiante estado) { this.estado = estado; }
 
-    public boolean isAccesoHabilitado() { return accesoHabilitado; }
-    public void setAccesoHabilitado(boolean accesoHabilitado) { this.accesoHabilitado = accesoHabilitado; }
 }
