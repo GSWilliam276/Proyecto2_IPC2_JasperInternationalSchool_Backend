@@ -4,6 +4,7 @@
  */
 package com.usac.colegio.jasperschoolbackend.persistencia.interfaces;
 
+import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionCursoEnUso;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionCursoNoEncontrado;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionPersistencia;
 import com.usac.colegio.jasperschoolbackend.modelo.Curso;
@@ -13,5 +14,5 @@ import com.usac.colegio.jasperschoolbackend.modelo.Curso;
  */
 public interface CursoDAO extends DAOGenerico<Curso> {
     void activar(int idCurso) throws ExcepcionCursoNoEncontrado, ExcepcionPersistencia;
-    void desactivar(int idCurso) throws ExcepcionCursoNoEncontrado, ExcepcionPersistencia;
+    void desactivar(int idCurso) throws ExcepcionCursoNoEncontrado, ExcepcionCursoEnUso, ExcepcionPersistencia;
 }

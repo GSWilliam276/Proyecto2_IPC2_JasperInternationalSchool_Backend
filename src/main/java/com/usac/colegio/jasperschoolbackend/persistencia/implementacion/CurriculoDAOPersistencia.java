@@ -185,18 +185,47 @@ public class CurriculoDAOPersistencia implements CurriculoDAO{
     }
 
     @Override
-    public void quitarCurso(int idCurriculo, int idCurso) throws ExcepcionCurriculoNoEncontrado, ExcepcionPersistencia {
-        //la validacion "el curso tiene asignaciones activas en este grado" se agrega con las asignaciones
-        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
-             PreparedStatement ps = con.prepareStatement(
-                     "DELETE FROM curriculo_curso WHERE id_curriculo = ? AND id_curso = ?")) {
-            ps.setInt(1, idCurriculo);
-            ps.setInt(2, idCurso);
-            if (ps.executeUpdate() == 0) {
-                throw new ExcepcionCurriculoNoEncontrado("Ese curso no está en el currículo");
+    public void quitarCurso(int idCurriculo, int idCurso)
+            throws ExcepcionCurriculoNoEncontrado, ExcepcionReferenciaInvalida, ExcepcionPersistencia {
+        Connection con = null;
+        try {
+            con = ConexionBase.obtenerInstancia().getConexion();
+            con.setAutoCommit(false);
+
+            //Se bloquea el curriculo: dos "quitar" simultaneos no pueden dejarlo vacio entre los dos
+            bloquearCurriculo(con, idCurriculo);
+
+            try (PreparedStatement ps = con.prepareStatement(
+                    "DELETE FROM curriculo_curso WHERE id_curriculo = ? AND id_curso = ?")) {
+                ps.setInt(1, idCurriculo);
+                ps.setInt(2, idCurso);
+                if (ps.executeUpdate() == 0) {
+                    con.rollback();
+                    throw new ExcepcionCurriculoNoEncontrado("Ese curso no está en el currículo");
+                }
             }
+            try (PreparedStatement ps = con.prepareStatement(
+                    "SELECT COUNT(*) FROM curriculo_curso WHERE id_curriculo = ?")) {
+                ps.setInt(1, idCurriculo);
+                try (ResultSet rs = ps.executeQuery()) {
+                    rs.next();
+                    if (rs.getInt(1) == 0) {
+                        con.rollback(); // se deshace el DELETE
+                        throw new ExcepcionReferenciaInvalida("El grado no puede quedar sin ningún curso");
+                    }
+                }
+            }
+            //la regla "ni quitar uno que ya tenga notas" se agrega cuando existan las notas
+            con.commit();
+
         } catch (SQLException e) {
+            deshacer(con);
             throw new ExcepcionPersistencia("Error al quitar el curso del currículo", e);
+        } catch (ExcepcionCurriculoNoEncontrado | ExcepcionReferenciaInvalida e) {
+            deshacer(con);
+            throw e;
+        } finally {
+            cerrar(con);
         }
     }
 

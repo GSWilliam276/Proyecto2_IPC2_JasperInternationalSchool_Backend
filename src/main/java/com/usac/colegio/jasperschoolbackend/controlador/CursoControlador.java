@@ -5,6 +5,7 @@
 package com.usac.colegio.jasperschoolbackend.controlador;
 
 import com.usac.colegio.jasperschoolbackend.enums.EstadoGeneral;
+import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionCursoEnUso;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionCursoNoEncontrado;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionNombreDuplicado;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionPersistencia;
@@ -117,6 +118,8 @@ public class CursoControlador {
             return Response.noContent().build();
         } catch (ExcepcionCursoNoEncontrado e) {
             return error(Response.Status.NOT_FOUND, e.getMessage());
+        } catch (ExcepcionCursoEnUso e) {
+            return error(Response.Status.CONFLICT, e.getMessage());
         } catch (ExcepcionPersistencia e) {
             return error(Response.Status.INTERNAL_SERVER_ERROR, "Error interno al desactivar el curso");
         }

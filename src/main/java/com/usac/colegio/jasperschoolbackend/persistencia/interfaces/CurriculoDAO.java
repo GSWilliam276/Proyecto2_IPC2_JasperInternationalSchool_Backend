@@ -26,5 +26,6 @@ public interface CurriculoDAO {
     void agregarCurso(int idCurriculo, int idCurso)
             throws ExcepcionCurriculoNoEncontrado, ExcepcionReferenciaInvalida, ExcepcionCurriculoDuplicado, ExcepcionPersistencia;
 
-    void quitarCurso(int idCurriculo, int idCurso) throws ExcepcionCurriculoNoEncontrado, ExcepcionPersistencia;
+    void quitarCurso(int idCurriculo, int idCurso)
+            throws ExcepcionCurriculoNoEncontrado, ExcepcionReferenciaInvalida, ExcepcionPersistencia;
 }

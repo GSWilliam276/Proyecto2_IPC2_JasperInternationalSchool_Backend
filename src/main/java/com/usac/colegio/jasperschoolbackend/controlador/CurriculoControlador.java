@@ -119,6 +119,8 @@ public class CurriculoControlador {
             return Response.noContent().build();
         } catch (ExcepcionCurriculoNoEncontrado e) {
             return error(Response.Status.NOT_FOUND, e.getMessage());
+        } catch (ExcepcionReferenciaInvalida e) {
+            return error(Response.Status.CONFLICT, e.getMessage());
         } catch (ExcepcionPersistencia e) {
             return error(Response.Status.INTERNAL_SERVER_ERROR, "Error interno al quitar el curso");
         }

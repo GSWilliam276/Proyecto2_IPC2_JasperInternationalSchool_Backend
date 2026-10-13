@@ -5,6 +5,7 @@
 package com.usac.colegio.jasperschoolbackend.persistencia.implementacion;
 
 import com.usac.colegio.jasperschoolbackend.enums.EstadoGeneral;
+import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionCursoEnUso;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionCursoNoEncontrado;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionNombreDuplicado;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionPersistencia;
@@ -103,10 +104,74 @@ public class CursoDAOPersistencia implements CursoDAO {
     }
 
     @Override
-    public void desactivar(int idCurso) throws ExcepcionCursoNoEncontrado, ExcepcionPersistencia {
-        //la validacion de "el curso esta en un curriculo o tiene asignaciones activas"
-        //se agrega cuando existan esos bloques
-        cambiarEstado(idCurso, EstadoGeneral.INACTIVO);
+    public void desactivar(int idCurso) throws ExcepcionCursoNoEncontrado, ExcepcionCursoEnUso, ExcepcionPersistencia {
+        Connection con = null;
+        try {
+            con = ConexionBase.obtenerInstancia().getConexion();
+            con.setAutoCommit(false);
+
+            //Se bloquea la fila del curso: agregarCurso tambien la bloquea,
+            //asi nadie lo enlaza a un curriculo entre la revision y el UPDATE
+            try (PreparedStatement ps = con.prepareStatement(
+                    "SELECT id_curso FROM curso WHERE id_curso = ? FOR UPDATE")) {
+                ps.setInt(1, idCurso);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (!rs.next()) {
+                        con.rollback();
+                        throw new ExcepcionCursoNoEncontrado("No existe un curso con ese id");
+                    }
+                }
+            }
+            String enUso = "SELECT 1 FROM curriculo_curso cc "
+                    + "JOIN curriculo c ON c.id_curriculo = cc.id_curriculo "
+                    + "JOIN grado g ON g.id_grado = c.id_grado "
+                    + "WHERE cc.id_curso = ? AND g.estado = 'ACTIVO' LIMIT 1";
+            try (PreparedStatement ps = con.prepareStatement(enUso)) {
+                ps.setInt(1, idCurso);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        con.rollback();
+                        throw new ExcepcionCursoEnUso("El curso forma parte del currículo de un grado activo");
+                    }
+                }
+            }
+            try (PreparedStatement ps = con.prepareStatement(
+                    "UPDATE curso SET estado = 'INACTIVO' WHERE id_curso = ?")) {
+                ps.setInt(1, idCurso);
+                ps.executeUpdate();
+            }
+            con.commit();
+
+        } catch (SQLException e) {
+            deshacer(con);
+            throw new ExcepcionPersistencia("Error al desactivar el curso", e);
+        } catch (ExcepcionCursoNoEncontrado | ExcepcionCursoEnUso e) {
+            deshacer(con);
+            throw e;
+        } finally {
+            cerrar(con);
+        }
+    }
+
+    private void deshacer(Connection con) {
+        if (con != null) {
+            try {
+                con.rollback();
+            } catch (SQLException ignorada) {
+                //si el rollback falla, la conexion se cierra de todos modos
+            }
+        }
+    }
+
+    private void cerrar(Connection con) {
+        if (con != null) {
+            try {
+                con.setAutoCommit(true);
+                con.close();
+            } catch (SQLException ignorada) {
+                //nada que hacer: la conexion ya no se usa
+            }
+        }
     }
 
     //Metodos de Apoyo 
