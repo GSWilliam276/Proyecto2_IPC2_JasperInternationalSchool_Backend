@@ -44,6 +44,7 @@ public class GradoControlador {
     private final GradoDAO gradoDAO = new GradoDAOPersistencia();
 
     @GET
+    @RolesPermitidos({"ADMIN", "SUPERADMIN"})
     public Response listar(@QueryParam("pagina") @DefaultValue("1") int pagina,
                            @QueryParam("tamano") @DefaultValue("10") int tamano,
                            @QueryParam("busqueda") String busqueda) {

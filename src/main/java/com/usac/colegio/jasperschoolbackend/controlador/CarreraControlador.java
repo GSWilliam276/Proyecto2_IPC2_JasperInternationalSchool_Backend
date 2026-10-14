@@ -42,6 +42,7 @@ public class CarreraControlador {
     private final CarreraDAO carreraDAO = new CarreraDAOPersistencia();
 
     @GET
+    @RolesPermitidos({"ADMIN", "SUPERADMIN"})
     public Response listar(@QueryParam("pagina") @DefaultValue("1") int pagina,
                            @QueryParam("tamano") @DefaultValue("10") int tamano,
                            @QueryParam("busqueda") String busqueda) {
