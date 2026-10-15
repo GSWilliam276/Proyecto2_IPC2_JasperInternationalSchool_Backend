@@ -10,6 +10,7 @@ import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionCorreoDuplicado
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionCuentaInvalida;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionCuiDuplicado;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionEmpleadoNoEncontrado;
+import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionOperacionNoPermitida;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionPersistencia;
 import com.usac.colegio.jasperschoolbackend.modelo.Empleado;
 import com.usac.colegio.jasperschoolbackend.persistencia.implementacion.EmpleadoDAOPersistencia;
@@ -143,6 +144,8 @@ public class EmpleadoControlador {
             return Response.noContent().build();
         } catch (ExcepcionEmpleadoNoEncontrado e) {
             return error(Response.Status.NOT_FOUND, e.getMessage());
+        } catch (ExcepcionOperacionNoPermitida e) {
+            return error(Response.Status.CONFLICT, e.getMessage());
         } catch (ExcepcionPersistencia e) {
             return error(Response.Status.INTERNAL_SERVER_ERROR, "Error interno al desactivar el empleado");
         }

@@ -10,6 +10,7 @@ import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionCorreoDuplicado
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionCuentaInvalida;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionCuiDuplicado;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionEmpleadoNoEncontrado;
+import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionOperacionNoPermitida;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionPersistencia;
 import com.usac.colegio.jasperschoolbackend.modelo.Empleado;
 import com.usac.colegio.jasperschoolbackend.persistencia.interfaces.EmpleadoDAO;
@@ -255,6 +256,29 @@ public class EmpleadoDAOPersistencia implements EmpleadoDAO{
                     puesto = Puesto.valueOf(rs.getString("puesto"));
                     int id = rs.getInt("id_usuario");
                     idUsuario = rs.wasNull() ? null : id;
+                }
+            }
+            if (nuevoEstado == EstadoGeneral.INACTIVO && puesto == Puesto.MAESTRO && idUsuario != null) {
+                //Se bloquea la fila del maestro: asignar() tambien la bloquea,
+                //asi nadie lo asigna entre esta revision y el UPDATE
+                try (PreparedStatement ps = con.prepareStatement(
+                        "SELECT id_usuario FROM maestro WHERE id_usuario = ? FOR UPDATE")) {
+                    ps.setInt(1, idUsuario);
+                    ps.executeQuery().close();
+                }
+                String sql = "SELECT 1 FROM asignacion_maestro am "
+                        + "JOIN seccion s ON s.id_seccion = am.id_seccion "
+                        + "JOIN anio_lectivo a ON a.id_anio_lectivo = s.id_anio_lectivo "
+                        + "WHERE am.id_maestro = ? AND a.estado = 'ACTIVO' LIMIT 1";
+                try (PreparedStatement ps = con.prepareStatement(sql)) {
+                    ps.setInt(1, idUsuario);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) {
+                            con.rollback();
+                            throw new ExcepcionOperacionNoPermitida(
+                                    "El maestro tiene asignaciones en el año lectivo activo: reasígnelas antes de desactivarlo");
+                        }
+                    }
                 }
             }
 
