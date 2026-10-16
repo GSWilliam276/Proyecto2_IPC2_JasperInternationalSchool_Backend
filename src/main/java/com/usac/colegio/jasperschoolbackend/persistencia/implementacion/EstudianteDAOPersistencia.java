@@ -161,6 +161,7 @@ public class EstudianteDAOPersistencia implements EstudianteDAO{
             if (actual != EstadoEstudiante.ACTIVO) {
                 throw new ExcepcionOperacionNoPermitida("Solo se puede graduar a un estudiante activo");
             }
+            validarOrdenDeGraduaciones(con, idUsuario, Nivel.DIVERSIFICADO, LocalDate.now());
             try (PreparedStatement ps = con.prepareStatement("UPDATE estudiante SET estado = 'GRADUADO' WHERE id_usuario = ?")) {
                 ps.setInt(1, idUsuario);
                 ps.executeUpdate();
@@ -201,6 +202,7 @@ public class EstudianteDAOPersistencia implements EstudianteDAO{
             if (nivel == Nivel.DIVERSIFICADO) {
                 throw new ExcepcionOperacionNoPermitida("La graduación de Diversificado se registra con la opción Graduar");
             }
+            validarOrdenDeGraduaciones(con, idUsuario, nivel, fecha);
             try (PreparedStatement ps = con.prepareStatement(
                     "INSERT INTO graduacion_estudiante (id_estudiante, nivel, fecha_graduacion) VALUES (?, ?, ?)")) {
                 ps.setInt(1, idUsuario);
@@ -384,6 +386,43 @@ public class EstudianteDAOPersistencia implements EstudianteDAO{
             } catch (SQLException ignorada) {
                 //Nada que hacer: la conexion ya no se usa
             }
+        }
+    }
+    
+    //Una graduacion tiene que ser posterior a la de los niveles anteriores ya registrados y anterior a la de los
+    //siguientes. Los niveles que faltan no bloquean nada: a alguien se le puede haber olvidado registrar uno.
+    private void validarOrdenDeGraduaciones(Connection con, int idUsuario, Nivel nivel, LocalDate fecha)
+            throws SQLException, ExcepcionOperacionNoPermitida {
+        try (PreparedStatement ps = con.prepareStatement(
+                "SELECT nivel, fecha_graduacion FROM graduacion_estudiante WHERE id_estudiante = ?")) {
+            ps.setInt(1, idUsuario);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Nivel otro = Nivel.valueOf(rs.getString("nivel"));
+                    LocalDate fechaOtro = rs.getDate("fecha_graduacion").toLocalDate();
+                    if (otro.ordinal() < nivel.ordinal() && !fecha.isAfter(fechaOtro)) {
+                        throw new ExcepcionOperacionNoPermitida(
+                                "La graduación debe ser posterior a la de " + nombreNivel(otro) + " (" + fechaOtro + ")");
+                    }
+                    if (otro.ordinal() > nivel.ordinal() && !fecha.isBefore(fechaOtro)) {
+                        throw new ExcepcionOperacionNoPermitida(
+                                "La graduación debe ser anterior a la de " + nombreNivel(otro) + " (" + fechaOtro + ")");
+                    }
+                }
+            }
+        }
+    }
+
+    private String nombreNivel(Nivel nivel) {
+        switch (nivel) {
+            case PRE_PRIMARIA:
+                return "Pre-primaria";
+            case PRIMARIA:
+                return "Primaria";
+            case BASICO:
+                return "Básico";
+            default:
+                return "Diversificado";
         }
     }
 }
