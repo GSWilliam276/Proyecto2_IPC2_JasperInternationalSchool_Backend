@@ -194,6 +194,24 @@ public class CurriculoDAOPersistencia implements CurriculoDAO{
 
             //Se bloquea el curriculo: dos "quitar" simultaneos no pueden dejarlo vacio entre los dos
             bloquearCurriculo(con, idCurriculo);
+            
+            //No se quita un curso que tenga maestro asignado en el año lectivo activo
+            //Asignar() bloquea la misma fila del curriculo, asi que las dos operaciones no se cruzan
+            String sqlAsignaciones = "SELECT 1 FROM asignacion_maestro am "
+                    + "JOIN seccion s ON s.id_seccion = am.id_seccion "
+                    + "JOIN anio_lectivo a ON a.id_anio_lectivo = s.id_anio_lectivo "
+                    + "JOIN curriculo cu ON cu.id_grado = s.id_grado AND cu.carrera_clave = s.carrera_clave "
+                    + "WHERE cu.id_curriculo = ? AND am.id_curso = ? AND a.estado = 'ACTIVO' LIMIT 1";
+            try (PreparedStatement ps = con.prepareStatement(sqlAsignaciones)) {
+                ps.setInt(1, idCurriculo);
+                ps.setInt(2, idCurso);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        throw new ExcepcionReferenciaInvalida(
+                                "El curso tiene maestro asignado en el año lectivo activo: quite la asignación antes");
+                    }
+                }
+            }
 
             try (PreparedStatement ps = con.prepareStatement(
                     "DELETE FROM curriculo_curso WHERE id_curriculo = ? AND id_curso = ?")) {
@@ -313,7 +331,7 @@ public class CurriculoDAOPersistencia implements CurriculoDAO{
             try {
                 con.rollback();
             } catch (SQLException ignorada) {
-                //si el rollback falla, la conexion se cierra de todos modos
+                //Si el rollback falla, la conexion se cierra de todos modos
             }
         }
     }
@@ -324,7 +342,7 @@ public class CurriculoDAOPersistencia implements CurriculoDAO{
                 con.setAutoCommit(true);
                 con.close();
             } catch (SQLException ignorada) {
-                //nada que hacer: la conexion ya no se usa
+                //Nada que hacer: la conexion ya no se usa
             }
         }
     }

@@ -30,7 +30,7 @@ public class Estudiante extends Usuario {
                       String alergias, String condicionesMedicas,
                       String encargadoNombre, String encargadoTelefono, String encargadoParentesco,
                       String encargado2Nombre, String encargado2Telefono, String encargado2Parentesco,
-                      EstadoEstudiante estado, boolean accesoHabilitado) {
+                      EstadoEstudiante estado) {
         super(idUsuario, cui, nombre, correo, telefono, direccion, contrasena);
         this.fechaNacimiento = fechaNacimiento;
         this.alergias = alergias;
