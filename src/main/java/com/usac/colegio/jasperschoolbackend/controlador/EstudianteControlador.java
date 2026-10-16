@@ -5,17 +5,21 @@
 package com.usac.colegio.jasperschoolbackend.controlador;
 
 import com.usac.colegio.jasperschoolbackend.enums.EstadoEstudiante;
+import com.usac.colegio.jasperschoolbackend.enums.Nivel;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionCuiDuplicado;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionEstudianteNoEncontrado;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionOperacionNoPermitida;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionPersistencia;
 import com.usac.colegio.jasperschoolbackend.modelo.Estudiante;
+import com.usac.colegio.jasperschoolbackend.modelo.Graduacion;
 import com.usac.colegio.jasperschoolbackend.persistencia.implementacion.EstudianteDAOPersistencia;
 import com.usac.colegio.jasperschoolbackend.persistencia.interfaces.EstudianteDAO;
 import com.usac.colegio.jasperschoolbackend.seguridad.RolesPermitidos;
 import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaError;
 import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaEstudiante;
+import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaGraduacion;
 import com.usac.colegio.jasperschoolbackend.transferencia.SolicitudEstudiante;
+import com.usac.colegio.jasperschoolbackend.transferencia.SolicitudGraduacion;
 import com.usac.colegio.jasperschoolbackend.transferencia.ValidacionEstudiante;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DefaultValue;
@@ -30,6 +34,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.time.LocalDate;
 import java.time.Period;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -41,8 +46,8 @@ import java.util.Optional;
 @Produces(MediaType.APPLICATION_JSON)
 @RolesPermitidos({"ADMIN", "SUPERADMIN", "SECRETARIA"})
 public class EstudianteControlador {
-    //Estudiantes (CU029 a CU034). Consultar: Admin y Secretaria. Registrar, editar y cambiar de estado:
-    //Admin y, por herencia, SuperAdmin
+    //Estudiantes (CU029 a CU034 y CU106). Consultar: Admin y Secretaria. Registrar, editar, cambiar de estado
+    //y registrar graduaciones: Admin y, por herencia, SuperAdmin
     private final EstudianteDAO estudianteDAO = new EstudianteDAOPersistencia();
 
     @GET
@@ -64,7 +69,7 @@ public class EstudianteControlador {
         try {
             List<RespuestaEstudiante> respuesta = new ArrayList<>();
             for (Estudiante e : estudianteDAO.listar(pagina, tamano, busqueda, filtro)) {
-                respuesta.add(aRespuesta(e));
+                respuesta.add(aRespuesta(e, null)); //El listado no trae las graduaciones: van en el expediente
             }
             return Response.ok(respuesta).build();
         } catch (ExcepcionPersistencia e) {
@@ -72,7 +77,7 @@ public class EstudianteControlador {
         }
     }
 
-    /** El expediente de un estudiante. */
+    //El expediente de un estudiante, con su historial de graduaciones
     @GET
     @Path("{id}")
     public Response consultar(@PathParam("id") int id) {
@@ -81,7 +86,11 @@ public class EstudianteControlador {
             if (estudiante.isEmpty()) {
                 return error(Response.Status.NOT_FOUND, "No existe un estudiante con ese id");
             }
-            return Response.ok(aRespuesta(estudiante.get())).build();
+            List<RespuestaGraduacion> graduaciones = new ArrayList<>();
+            for (Graduacion g : estudianteDAO.listarGraduaciones(id)) {
+                graduaciones.add(new RespuestaGraduacion(g.getNivel().name(), g.getFecha().toString()));
+            }
+            return Response.ok(aRespuesta(estudiante.get(), graduaciones)).build();
         } catch (ExcepcionPersistencia e) {
             return error(Response.Status.INTERNAL_SERVER_ERROR, "Error interno al consultar el estudiante");
         }
@@ -95,10 +104,11 @@ public class EstudianteControlador {
         if (problema != null) {
             return error(Response.Status.BAD_REQUEST, problema);
         }
-        Estudiante nuevo = construir(0, solicitud.getCui().trim(), null, solicitud, EstadoEstudiante.ACTIVO);
+        Estudiante nuevo = construir(0, solicitud.getCui().trim(), null,
+                LocalDate.parse(solicitud.getFechaNacimiento().trim()), solicitud, EstadoEstudiante.ACTIVO);
         try {
             Estudiante creado = estudianteDAO.registrar(nuevo);
-            return Response.status(Response.Status.CREATED).entity(aRespuesta(creado)).build();
+            return Response.status(Response.Status.CREATED).entity(aRespuesta(creado, null)).build();
         } catch (ExcepcionCuiDuplicado e) {
             return error(Response.Status.CONFLICT, e.getMessage());
         } catch (ExcepcionPersistencia e) {
@@ -120,9 +130,9 @@ public class EstudianteControlador {
             if (actual.isEmpty()) {
                 return error(Response.Status.NOT_FOUND, "No existe un estudiante con ese id");
             }
-            // se conservan CUI, correo y estado: el PUT reemplaza el resto de los datos
+            //Se conservan CUI, correo, fecha de nacimiento y estado: el PUT reemplaza el resto de los datos
             Estudiante a = actual.get();
-            estudianteDAO.editar(construir(id, a.getCui(), a.getCorreo(), solicitud, a.getEstado()));
+            estudianteDAO.editar(construir(id, a.getCui(), a.getCorreo(), a.getFechaNacimiento(), solicitud, a.getEstado()));
             return Response.noContent().build();
         } catch (ExcepcionEstudianteNoEncontrado e) {
             return error(Response.Status.NOT_FOUND, e.getMessage());
@@ -165,6 +175,7 @@ public class EstudianteControlador {
         }
     }
 
+    //CU033: egreso de Diversificado. Cierra al estudiante
     @PUT
     @Path("{id}/graduar")
     @RolesPermitidos({"ADMIN", "SUPERADMIN"})
@@ -181,28 +192,74 @@ public class EstudianteControlador {
         }
     }
 
-    // ----- apoyo -----
+    //CU106: registra que el estudiante termino un nivel. No cambia su estado
+    @POST
+    @Path("{id}/graduaciones")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @RolesPermitidos({"ADMIN", "SUPERADMIN"})
+    public Response registrarGraduacion(@PathParam("id") int id, SolicitudGraduacion solicitud) {
+        if (solicitud == null || solicitud.getNivel() == null || solicitud.getNivel().isBlank()
+                || solicitud.getFecha() == null || solicitud.getFecha().isBlank()) {
+            return error(Response.Status.BAD_REQUEST, "El nivel y la fecha son obligatorios");
+        }
+        Nivel nivel;
+        try {
+            nivel = Nivel.valueOf(solicitud.getNivel());
+        } catch (IllegalArgumentException e) {
+            return error(Response.Status.BAD_REQUEST, "El nivel debe ser PRE_PRIMARIA, PRIMARIA o BASICO");
+        }
+        LocalDate fecha;
+        try {
+            fecha = LocalDate.parse(solicitud.getFecha().trim());
+        } catch (DateTimeParseException e) {
+            return error(Response.Status.BAD_REQUEST, "La fecha debe tener el formato AAAA-MM-DD");
+        }
+        if (fecha.isAfter(LocalDate.now())) {
+            return error(Response.Status.BAD_REQUEST, "La fecha de graduación no puede ser futura");
+        }
+        try {
+            Optional<Estudiante> actual = estudianteDAO.buscarPorId(id);
+            if (actual.isEmpty()) {
+                return error(Response.Status.NOT_FOUND, "No existe un estudiante con ese id");
+            }
+            if (fecha.isBefore(actual.get().getFechaNacimiento())) {
+                return error(Response.Status.BAD_REQUEST, "La fecha de graduación no puede ser anterior al nacimiento");
+            }
+            estudianteDAO.registrarGraduacionNivel(id, nivel, fecha);
+            return Response.status(Response.Status.CREATED).build();
+        } catch (ExcepcionEstudianteNoEncontrado e) {
+            return error(Response.Status.NOT_FOUND, e.getMessage());
+        } catch (ExcepcionOperacionNoPermitida e) {
+            //409: la peticion esta bien armada, pero choca con una regla (nivel repetido, graduado, Diversificado)
+            return error(Response.Status.CONFLICT, e.getMessage());
+        } catch (ExcepcionPersistencia e) {
+            return error(Response.Status.INTERNAL_SERVER_ERROR, "Error interno al registrar la graduación");
+        }
+    }
 
-    private Estudiante construir(int id, String cui, String correo, SolicitudEstudiante s, EstadoEstudiante estado) {
+    //Metodos de Apoyo
+
+    private Estudiante construir(int id, String cui, String correo, LocalDate nacimiento, SolicitudEstudiante s,
+                                 EstadoEstudiante estado) {
         return new Estudiante(id, cui, s.getNombre().trim(), correo, s.getTelefono().trim(), s.getDireccion().trim(),
-                null, LocalDate.parse(s.getFechaNacimiento().trim()), limpio(s.getAlergias()),
+                null, nacimiento, limpio(s.getAlergias()),
                 limpio(s.getCondicionesMedicas()), s.getEncargadoNombre().trim(), s.getEncargadoTelefono().trim(),
                 s.getEncargadoParentesco().trim(), limpio(s.getEncargado2Nombre()), limpio(s.getEncargado2Telefono()),
                 limpio(s.getEncargado2Parentesco()), estado);
     }
 
-    /** Un opcional vacio se guarda como null: asi queda una sola forma de "sin dato". */
+    //Un opcional vacio se guarda como null: asi queda una sola forma de "sin dato"
     private String limpio(String texto) {
         return (texto == null || texto.isBlank()) ? null : texto.trim();
     }
 
-    private RespuestaEstudiante aRespuesta(Estudiante e) {
+    private RespuestaEstudiante aRespuesta(Estudiante e, List<RespuestaGraduacion> graduaciones) {
         int edad = Period.between(e.getFechaNacimiento(), LocalDate.now()).getYears();
         return new RespuestaEstudiante(e.getIdUsuario(), e.getCui(), e.getNombre(), e.getCorreo(), e.getTelefono(),
                 e.getDireccion(), e.getFechaNacimiento().toString(), edad, e.getAlergias(), e.getCondicionesMedicas(),
                 e.getEncargadoNombre(), e.getEncargadoTelefono(), e.getEncargadoParentesco(),
                 e.getEncargado2Nombre(), e.getEncargado2Telefono(), e.getEncargado2Parentesco(),
-                e.getEstado().name(), e.getCorreo() != null);
+                e.getEstado().name(), e.getCorreo() != null, graduaciones);
     }
 
     private Response error(Response.Status estado, String mensaje) {

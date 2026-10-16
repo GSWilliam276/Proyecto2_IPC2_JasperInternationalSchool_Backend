@@ -4,6 +4,8 @@
  */
 package com.usac.colegio.jasperschoolbackend.transferencia;
 
+import java.util.List;
+
 /**
  *
  * @author eduar
@@ -13,7 +15,7 @@ public class RespuestaEstudiante {
     private int idUsuario;
     private String cui;
     private String nombre;
-    private String correo;               // null mientras no tenga acceso
+    private String correo;               //null mientras no tenga acceso
     private String telefono;
     private String direccion;
     private String fechaNacimiento;
@@ -28,6 +30,7 @@ public class RespuestaEstudiante {
     private String encargado2Parentesco;
     private String estado;
     private boolean tieneAcceso;
+    private List<RespuestaGraduacion> graduaciones;   //Solo en el expediente; null en el listado
 
     public RespuestaEstudiante() {
     }
@@ -36,7 +39,8 @@ public class RespuestaEstudiante {
                                String direccion, String fechaNacimiento, int edad, String alergias,
                                String condicionesMedicas, String encargadoNombre, String encargadoTelefono,
                                String encargadoParentesco, String encargado2Nombre, String encargado2Telefono,
-                               String encargado2Parentesco, String estado, boolean tieneAcceso) {
+                               String encargado2Parentesco, String estado, boolean tieneAcceso,
+                               List<RespuestaGraduacion> graduaciones) {
         this.idUsuario = idUsuario;
         this.cui = cui;
         this.nombre = nombre;
@@ -55,6 +59,7 @@ public class RespuestaEstudiante {
         this.encargado2Parentesco = encargado2Parentesco;
         this.estado = estado;
         this.tieneAcceso = tieneAcceso;
+        this.graduaciones = graduaciones;
     }
 
     public int getIdUsuario() { return idUsuario; }
@@ -75,4 +80,5 @@ public class RespuestaEstudiante {
     public String getEncargado2Parentesco() { return encargado2Parentesco; }
     public String getEstado() { return estado; }
     public boolean isTieneAcceso() { return tieneAcceso; }
+    public List<RespuestaGraduacion> getGraduaciones() { return graduaciones; }
 }

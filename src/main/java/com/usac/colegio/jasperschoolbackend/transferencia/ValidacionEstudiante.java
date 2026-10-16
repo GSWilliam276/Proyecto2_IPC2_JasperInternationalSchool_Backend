@@ -20,10 +20,11 @@ public class ValidacionEstudiante {
     }
 
     public static String validar(SolicitudEstudiante s, boolean alCrear) {
+        //El CUI y la fecha de nacimiento solo se piden al registrar: despues ya no cambian
         if (s == null || vacio(s.getNombre()) || vacio(s.getTelefono()) || vacio(s.getDireccion())
-                || vacio(s.getFechaNacimiento()) || vacio(s.getEncargadoNombre())
-                || vacio(s.getEncargadoTelefono()) || vacio(s.getEncargadoParentesco())
-                || (alCrear && vacio(s.getCui()))) {
+                || vacio(s.getEncargadoNombre()) || vacio(s.getEncargadoTelefono())
+                || vacio(s.getEncargadoParentesco())
+                || (alCrear && (vacio(s.getCui()) || vacio(s.getFechaNacimiento())))) {
             return "Faltan datos obligatorios del estudiante o de su encargado principal";
         }
         if (alCrear && !s.getCui().trim().matches("\\d{13}")) {
@@ -35,14 +36,16 @@ public class ValidacionEstudiante {
         if (!s.getTelefono().trim().matches("\\d{8,15}")) {
             return "El teléfono debe tener entre 8 y 15 dígitos";
         }
-        String problema = validarFechaNacimiento(s.getFechaNacimiento().trim(), alCrear);
-        if (problema != null) {
-            return problema;
+        if (alCrear) {
+            String problemaFecha = validarFechaNacimiento(s.getFechaNacimiento().trim());
+            if (problemaFecha != null) {
+                return problemaFecha;
+            }
         }
         if (largo(s.getAlergias()) > 255 || largo(s.getCondicionesMedicas()) > 255) {
             return "Las alergias y las condiciones médicas no pueden pasar de 255 caracteres";
         }
-        problema = validarEncargado(s.getEncargadoNombre(), s.getEncargadoTelefono(), s.getEncargadoParentesco(), "principal");
+        String problema = validarEncargado(s.getEncargadoNombre(), s.getEncargadoTelefono(), s.getEncargadoParentesco(), "principal");
         if (problema != null) {
             return problema;
         }
@@ -59,7 +62,7 @@ public class ValidacionEstudiante {
         return null;
     }
 
-    private static String validarFechaNacimiento(String texto, boolean alCrear) {
+    private static String validarFechaNacimiento(String texto) {
         LocalDate nacimiento;
         try {
             nacimiento = LocalDate.parse(texto);
@@ -69,11 +72,6 @@ public class ValidacionEstudiante {
         LocalDate hoy = LocalDate.now();
         if (nacimiento.isAfter(hoy)) {
             return "La fecha de nacimiento no puede ser futura";
-        }
-        //Los limites de edad aplican al registrar. Al editar solo se corrige el dato:
-        //si no, un estudiante registrado a los 25 quedaria sin poder editarse al cumplir 26
-        if (!alCrear) {
-            return null;
         }
         int edad = Period.between(nacimiento, hoy).getYears();
         if (edad < EDAD_MINIMA) {

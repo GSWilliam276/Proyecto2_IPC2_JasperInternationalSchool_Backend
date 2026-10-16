@@ -5,11 +5,13 @@
 package com.usac.colegio.jasperschoolbackend.persistencia.implementacion;
 
 import com.usac.colegio.jasperschoolbackend.enums.EstadoEstudiante;
+import com.usac.colegio.jasperschoolbackend.enums.Nivel;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionCuiDuplicado;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionEstudianteNoEncontrado;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionOperacionNoPermitida;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionPersistencia;
 import com.usac.colegio.jasperschoolbackend.modelo.Estudiante;
+import com.usac.colegio.jasperschoolbackend.modelo.Graduacion;
 import com.usac.colegio.jasperschoolbackend.persistencia.interfaces.EstudianteDAO;
 import com.usac.colegio.jasperschoolbackend.utilidades.ConexionBase;
 import java.sql.Connection;
@@ -18,6 +20,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -27,7 +30,6 @@ import java.util.Optional;
  */
 public class EstudianteDAOPersistencia implements EstudianteDAO{
     //Acceso a datos de Estudiante. Vive en dos tablas (usuario y estudiante), asi que registrar y editar
-    //son transacciones
     private static final String SELECCIONAR =
             "SELECT u.id_usuario, u.cui, u.nombre, u.correo, u.telefono, u.direccion, "
             + "e.fecha_nacimiento, e.alergias, e.condiciones_medicas, "
@@ -104,12 +106,20 @@ public class EstudianteDAOPersistencia implements EstudianteDAO{
                 ps.setInt(4, estudiante.getIdUsuario());
                 ps.executeUpdate();
             }
-            String sql = "UPDATE estudiante SET fecha_nacimiento = ?, alergias = ?, condiciones_medicas = ?, "
+            //La fecha de nacimiento no se toca: identifica a la persona, igual que el CUI
+            String sql = "UPDATE estudiante SET alergias = ?, condiciones_medicas = ?, "
                     + "encargado_nombre = ?, encargado_telefono = ?, encargado_parentesco = ?, "
                     + "encargado2_nombre = ?, encargado2_telefono = ?, encargado2_parentesco = ? WHERE id_usuario = ?";
             try (PreparedStatement ps = con.prepareStatement(sql)) {
-                llenarDatosDeEstudiante(ps, 1, estudiante);
-                ps.setInt(10, estudiante.getIdUsuario());
+                ps.setString(1, estudiante.getAlergias());
+                ps.setString(2, estudiante.getCondicionesMedicas());
+                ps.setString(3, estudiante.getEncargadoNombre());
+                ps.setString(4, estudiante.getEncargadoTelefono());
+                ps.setString(5, estudiante.getEncargadoParentesco());
+                ps.setString(6, estudiante.getEncargado2Nombre());
+                ps.setString(7, estudiante.getEncargado2Telefono());
+                ps.setString(8, estudiante.getEncargado2Parentesco());
+                ps.setInt(9, estudiante.getIdUsuario());
                 ps.executeUpdate();
             }
             con.commit();
@@ -136,9 +146,103 @@ public class EstudianteDAOPersistencia implements EstudianteDAO{
         transicion(idUsuario, EstadoEstudiante.ACTIVO, EstadoEstudiante.INACTIVO, "El estudiante no está activo");
     }
 
+    //Egreso de Diversificado: cierra al estudiante y deja el nivel en el historial, en una sola transaccion
     @Override
     public void graduar(int idUsuario) throws ExcepcionEstudianteNoEncontrado, ExcepcionOperacionNoPermitida, ExcepcionPersistencia {
-        transicion(idUsuario, EstadoEstudiante.ACTIVO, EstadoEstudiante.GRADUADO, "Solo se puede graduar a un estudiante activo");
+        Connection con = null;
+        try {
+            con = ConexionBase.obtenerInstancia().getConexion();
+            con.setAutoCommit(false);
+
+            EstadoEstudiante actual = bloquear(con, idUsuario);
+            if (actual == EstadoEstudiante.GRADUADO) {
+                throw new ExcepcionOperacionNoPermitida("El estudiante está graduado: no admite cambios");
+            }
+            if (actual != EstadoEstudiante.ACTIVO) {
+                throw new ExcepcionOperacionNoPermitida("Solo se puede graduar a un estudiante activo");
+            }
+            try (PreparedStatement ps = con.prepareStatement("UPDATE estudiante SET estado = 'GRADUADO' WHERE id_usuario = ?")) {
+                ps.setInt(1, idUsuario);
+                ps.executeUpdate();
+            }
+            //Si el nivel ya estaba registrado, no falla: el egreso no obliga a borrar nada
+            String sql = "INSERT INTO graduacion_estudiante (id_estudiante, nivel, fecha_graduacion) VALUES (?, 'DIVERSIFICADO', ?) "
+                    + "ON DUPLICATE KEY UPDATE id_graduacion = id_graduacion";
+            try (PreparedStatement ps = con.prepareStatement(sql)) {
+                ps.setInt(1, idUsuario);
+                ps.setDate(2, Date.valueOf(LocalDate.now()));
+                ps.executeUpdate();
+            }
+            con.commit();
+
+        } catch (SQLException ex) {
+            deshacer(con);
+            throw new ExcepcionPersistencia("Error al graduar al estudiante", ex);
+        } catch (ExcepcionEstudianteNoEncontrado | ExcepcionOperacionNoPermitida ex) {
+            deshacer(con);
+            throw ex;
+        } finally {
+            cerrar(con);
+        }
+    }
+
+    @Override
+    public void registrarGraduacionNivel(int idUsuario, Nivel nivel, LocalDate fecha)
+            throws ExcepcionEstudianteNoEncontrado, ExcepcionOperacionNoPermitida, ExcepcionPersistencia {
+        Connection con = null;
+        try {
+            con = ConexionBase.obtenerInstancia().getConexion();
+            con.setAutoCommit(false);
+
+            EstadoEstudiante actual = bloquear(con, idUsuario);
+            if (actual == EstadoEstudiante.GRADUADO) {
+                throw new ExcepcionOperacionNoPermitida("El estudiante está graduado: no admite cambios");
+            }
+            if (nivel == Nivel.DIVERSIFICADO) {
+                throw new ExcepcionOperacionNoPermitida("La graduación de Diversificado se registra con la opción Graduar");
+            }
+            try (PreparedStatement ps = con.prepareStatement(
+                    "INSERT INTO graduacion_estudiante (id_estudiante, nivel, fecha_graduacion) VALUES (?, ?, ?)")) {
+                ps.setInt(1, idUsuario);
+                ps.setString(2, nivel.name());
+                ps.setDate(3, Date.valueOf(fecha));
+                ps.executeUpdate();
+            }
+            con.commit();
+
+        } catch (SQLException ex) {
+            deshacer(con);
+            if (ex.getErrorCode() == 1062) {
+                //El UNIQUE (estudiante, nivel) es la garantia real contra un nivel repetido
+                throw new ExcepcionOperacionNoPermitida("El estudiante ya está graduado de ese nivel");
+            }
+            throw new ExcepcionPersistencia("Error al registrar la graduación", ex);
+        } catch (ExcepcionEstudianteNoEncontrado | ExcepcionOperacionNoPermitida ex) {
+            deshacer(con);
+            throw ex;
+        } finally {
+            cerrar(con);
+        }
+    }
+
+    @Override
+    public List<Graduacion> listarGraduaciones(int idUsuario) throws ExcepcionPersistencia {
+        String sql = "SELECT nivel, fecha_graduacion FROM graduacion_estudiante "
+                + "WHERE id_estudiante = ? ORDER BY fecha_graduacion, id_graduacion";
+        List<Graduacion> lista = new ArrayList<>();
+        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, idUsuario);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    lista.add(new Graduacion(Nivel.valueOf(rs.getString("nivel")),
+                            rs.getDate("fecha_graduacion").toLocalDate()));
+                }
+            }
+        } catch (SQLException ex) {
+            throw new ExcepcionPersistencia("Error al listar las graduaciones", ex);
+        }
+        return lista;
     }
 
     @Override
@@ -190,7 +294,7 @@ public class EstudianteDAOPersistencia implements EstudianteDAO{
         return lista;
     }
 
-    //Metodos de Apoyo 
+    //Metodos de Apoyo
 
     //Lee el estado de la fila bloqueandola. Un graduado se detecta en cada operacion
     private EstadoEstudiante bloquear(Connection con, int idUsuario) throws SQLException, ExcepcionEstudianteNoEncontrado {
