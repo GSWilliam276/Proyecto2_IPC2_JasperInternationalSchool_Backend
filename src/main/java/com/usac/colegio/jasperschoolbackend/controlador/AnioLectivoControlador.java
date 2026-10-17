@@ -138,6 +138,23 @@ public class AnioLectivoControlador {
         }
     }
 
+    /** El año lectivo activo, para mostrarlo en el inicio. Lo ven Admin y SuperAdmin. */
+    @GET
+    @Path("activo")
+    @RolesPermitidos({"ADMIN", "SUPERADMIN"})
+    public Response activo() {
+        try {
+            Optional<AnioLectivo> activo = anioDAO.buscarActivo();
+            if (activo.isEmpty()) {
+                return Response.noContent().build();   // 204: no hay año activo, y eso no es un error
+            }
+            return Response.ok(aRespuesta(activo.get())).build();
+        } catch (ExcepcionPersistencia e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity(new RespuestaError("Error interno al consultar el año lectivo activo")).build();
+        }
+    }
+    
     //Metodos de Apoyo
 
     private String validar(SolicitudAnioLectivo s) {
