@@ -97,7 +97,7 @@ public class SolvenciaControlador {
 
     private RespuestaSolvencia aRespuesta(Solvencia s) {
         return new RespuestaSolvencia(s.getIdSolvencia(), s.getIdEstudiante(), s.getEstudianteNombre(),
-                s.getAnioNombre(), s.getSecretariaNombre(), s.getFechaEmision().toString());
+                s.getAnioNombre(), s.getSecretariaNombre(), s.getFechaEmision().toString(), s.isYaExistia());
     }
 
     private Response error(Response.Status estado, String mensaje) {

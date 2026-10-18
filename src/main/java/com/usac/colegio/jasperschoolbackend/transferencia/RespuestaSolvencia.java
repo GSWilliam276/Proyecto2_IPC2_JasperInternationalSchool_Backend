@@ -15,18 +15,20 @@ public class RespuestaSolvencia {
     private String anioNombre;
     private String secretariaNombre;
     private String fechaEmision;
+    private boolean yaExistia;
 
     public RespuestaSolvencia() {
     }
 
     public RespuestaSolvencia(int idSolvencia, int idEstudiante, String estudianteNombre, String anioNombre,
-                              String secretariaNombre, String fechaEmision) {
+                              String secretariaNombre, String fechaEmision, boolean yaExistia) {
         this.idSolvencia = idSolvencia;
         this.idEstudiante = idEstudiante;
         this.estudianteNombre = estudianteNombre;
         this.anioNombre = anioNombre;
         this.secretariaNombre = secretariaNombre;
         this.fechaEmision = fechaEmision;
+        this.yaExistia = yaExistia;
     }
 
     public int getIdSolvencia() { return idSolvencia; }
@@ -35,4 +37,5 @@ public class RespuestaSolvencia {
     public String getAnioNombre() { return anioNombre; }
     public String getSecretariaNombre() { return secretariaNombre; }
     public String getFechaEmision() { return fechaEmision; }
+    public boolean isYaExistia() { return yaExistia; }
 }

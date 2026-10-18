@@ -17,6 +17,7 @@ public class Solvencia {
     private final String anioNombre;
     private final String secretariaNombre;
     private final LocalDateTime fechaEmision;
+    private boolean yaExistia;
 
     public Solvencia(int idSolvencia, int idEstudiante, String estudianteNombre, String anioNombre,
                      String secretariaNombre, LocalDateTime fechaEmision) {
@@ -34,4 +35,6 @@ public class Solvencia {
     public String getAnioNombre() { return anioNombre; }
     public String getSecretariaNombre() { return secretariaNombre; }
     public LocalDateTime getFechaEmision() { return fechaEmision; }
+    public boolean isYaExistia() { return yaExistia; }
+    public void setYaExistia(boolean yaExistia) { this.yaExistia = yaExistia; }
 }

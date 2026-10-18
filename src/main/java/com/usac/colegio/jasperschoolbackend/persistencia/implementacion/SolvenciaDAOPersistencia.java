@@ -58,29 +58,52 @@ public class SolvenciaDAOPersistencia implements SolvenciaDAO {
             throws ExcepcionEstudianteNoEncontrado, ExcepcionOperacionNoPermitida, ExcepcionReferenciaInvalida,
             ExcepcionPersistencia {
         Connection con = null;
-        int idNueva;
+        int idResultado;
+        boolean yaExistia;   //Se declara aqui para poder usarla despues del try
         try {
             con = ConexionBase.obtenerInstancia().getConexion();
             con.setAutoCommit(false);
 
             int[] anio = new int[1];
-            Saldo saldo = calcular(con, idEstudiante, anio);   //Bloquea la inscripcion: nadie cobra a mitad
+            Saldo saldo = calcular(con, idEstudiante, anio);   //Bloquea la inscripcion: nadie cobra ni emite a mitad
             if (!saldo.isSolvente()) {
                 throw new ExcepcionOperacionNoPermitida("El estudiante tiene un saldo pendiente de Q"
                         + String.format(Locale.US, "%,.2f", saldo.getMonto()) + ": no se puede generar la solvencia");
             }
+
+            //Si ya se emitio una este mes, se devuelve esa en vez de crear otra
+            Integer existente = null;
             try (PreparedStatement ps = con.prepareStatement(
-                    "INSERT INTO solvencia (id_estudiante, id_anio_lectivo, id_secretaria, fecha_emision) VALUES (?, ?, ?, ?)",
-                    Statement.RETURN_GENERATED_KEYS)) {
+                    "SELECT id_solvencia FROM solvencia WHERE id_estudiante = ? AND id_anio_lectivo = ? "
+                    + "AND YEAR(fecha_emision) = YEAR(CURDATE()) AND MONTH(fecha_emision) = MONTH(CURDATE()) "
+                    + "ORDER BY id_solvencia DESC LIMIT 1")) {
                 ps.setInt(1, idEstudiante);
                 ps.setInt(2, anio[0]);
-                ps.setInt(3, idSecretaria);
-                ps.setTimestamp(4, Timestamp.valueOf(LocalDateTime.now()));
-                ps.executeUpdate();
-                try (ResultSet rs = ps.getGeneratedKeys()) {
-                    rs.next();
-                    idNueva = rs.getInt(1);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        existente = rs.getInt(1);
+                    }
                 }
+            }
+
+            if (existente != null) {
+                idResultado = existente;
+                yaExistia = true;
+            } else {
+                try (PreparedStatement ps = con.prepareStatement(
+                        "INSERT INTO solvencia (id_estudiante, id_anio_lectivo, id_secretaria, fecha_emision) VALUES (?, ?, ?, ?)",
+                        Statement.RETURN_GENERATED_KEYS)) {
+                    ps.setInt(1, idEstudiante);
+                    ps.setInt(2, anio[0]);
+                    ps.setInt(3, idSecretaria);
+                    ps.setTimestamp(4, Timestamp.valueOf(LocalDateTime.now()));
+                    ps.executeUpdate();
+                    try (ResultSet rs = ps.getGeneratedKeys()) {
+                        rs.next();
+                        idResultado = rs.getInt(1);
+                    }
+                }
+                yaExistia = false;
             }
             con.commit();
 
@@ -95,13 +118,15 @@ public class SolvenciaDAOPersistencia implements SolvenciaDAO {
         }
         try (Connection c = ConexionBase.obtenerInstancia().getConexion();
              PreparedStatement ps = c.prepareStatement(SELECCIONAR + "WHERE sv.id_solvencia = ?")) {
-            ps.setInt(1, idNueva);
+            ps.setInt(1, idResultado);
             try (ResultSet rs = ps.executeQuery()) {
                 rs.next();
-                return mapear(rs);
+                Solvencia s = mapear(rs);
+                s.setYaExistia(yaExistia);   //Le dice al controlador si fue nueva o ya existia
+                return s;
             }
         } catch (SQLException e) {
-            throw new ExcepcionPersistencia("No se pudo leer la solvencia creada", e);
+            throw new ExcepcionPersistencia("No se pudo leer la solvencia", e);
         }
     }
 
