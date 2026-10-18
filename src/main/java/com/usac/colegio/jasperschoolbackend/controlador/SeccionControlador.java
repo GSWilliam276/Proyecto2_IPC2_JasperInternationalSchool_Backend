@@ -44,6 +44,7 @@ public class SeccionControlador {
     private final SeccionDAO seccionDAO = new SeccionDAOPersistencia();
 
     @GET
+    @RolesPermitidos({"ADMIN", "SUPERADMIN", "SECRETARIA"})
     public Response listar(@QueryParam("pagina") @DefaultValue("1") int pagina,
                            @QueryParam("tamano") @DefaultValue("10") int tamano,
                            @QueryParam("busqueda") String busqueda,

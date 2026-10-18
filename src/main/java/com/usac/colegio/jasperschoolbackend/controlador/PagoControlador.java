@@ -5,23 +5,33 @@
 package com.usac.colegio.jasperschoolbackend.controlador;
 
 import com.usac.colegio.jasperschoolbackend.enums.ConceptoPago;
+import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionActividadNoEncontrada;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionEstudianteNoEncontrado;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionOperacionNoPermitida;
+import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionPagoNoEncontrado;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionPersistencia;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionReferenciaInvalida;
+import com.usac.colegio.jasperschoolbackend.modelo.Comprobante;
 import com.usac.colegio.jasperschoolbackend.modelo.Pago;
+import com.usac.colegio.jasperschoolbackend.persistencia.implementacion.ComprobanteDAOPersistencia;
 import com.usac.colegio.jasperschoolbackend.persistencia.implementacion.PagoDAOPersistencia;
+import com.usac.colegio.jasperschoolbackend.persistencia.interfaces.ComprobanteDAO;
 import com.usac.colegio.jasperschoolbackend.persistencia.interfaces.PagoDAO;
 import com.usac.colegio.jasperschoolbackend.seguridad.RolesPermitidos;
+import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaComprobante;
 import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaError;
 import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaPago;
+import com.usac.colegio.jasperschoolbackend.transferencia.SolicitudAnularPago;
+import com.usac.colegio.jasperschoolbackend.transferencia.SolicitudPagoActividad;
 import com.usac.colegio.jasperschoolbackend.transferencia.SolicitudPagoInscripcion;
 import com.usac.colegio.jasperschoolbackend.transferencia.SolicitudPagoMensualidad;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.container.ContainerRequestContext;
@@ -32,6 +42,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.TreeSet;
 /**
  *
@@ -43,6 +54,7 @@ import java.util.TreeSet;
 public class PagoControlador {
     //Pagos (CU062, CU063 y CU066 por ahora). Solo la Secretaria: el pago guarda quien lo registro
     private final PagoDAO pagoDAO = new PagoDAOPersistencia();
+    private final ComprobanteDAO comprobanteDAO = new ComprobanteDAOPersistencia();
 
     @GET
     public Response listar(@QueryParam("pagina") @DefaultValue("1") int pagina,
@@ -134,6 +146,81 @@ public class PagoControlador {
         } catch (ExcepcionPersistencia e) {
             return error(Response.Status.INTERNAL_SERVER_ERROR, "Error interno al registrar el pago de mensualidad");
         }
+    }
+    
+    @POST
+    @Path("actividad")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response pagarActividad(SolicitudPagoActividad solicitud, @Context ContainerRequestContext contexto) {
+        if (solicitud == null || solicitud.getIdEstudiante() == null || solicitud.getIdActividad() == null) {
+            return error(Response.Status.BAD_REQUEST, "El estudiante y la actividad son obligatorios");
+        }
+        try {
+            int idSecretaria = Integer.parseInt(String.valueOf(contexto.getProperty("idUsuario")));
+            Pago pago = pagoDAO.registrarActividad(solicitud.getIdEstudiante(), solicitud.getIdActividad(), idSecretaria);
+            return Response.status(Response.Status.CREATED).entity(aRespuesta(pago)).build();
+        } catch (ExcepcionEstudianteNoEncontrado | ExcepcionActividadNoEncontrada e) {
+            return error(Response.Status.NOT_FOUND, e.getMessage());
+        } catch (ExcepcionOperacionNoPermitida | ExcepcionReferenciaInvalida e) {
+            return error(Response.Status.CONFLICT, e.getMessage());
+        } catch (ExcepcionPersistencia e) {
+            return error(Response.Status.INTERNAL_SERVER_ERROR, "Error interno al registrar el pago de actividad");
+        }
+    }
+
+    @PUT
+    @Path("{id}/anular")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response anular(@PathParam("id") int id, SolicitudAnularPago solicitud) {
+        if (solicitud == null || solicitud.getMotivo() == null || solicitud.getMotivo().isBlank()) {
+            return error(Response.Status.BAD_REQUEST, "El motivo de la anulación es obligatorio");
+        }
+        if (solicitud.getMotivo().trim().length() > 255) {
+            return error(Response.Status.BAD_REQUEST, "El motivo no puede pasar de 255 caracteres");
+        }
+        try {
+            pagoDAO.anular(id, solicitud.getMotivo().trim());
+            return Response.noContent().build();
+        } catch (ExcepcionPagoNoEncontrado e) {
+            return error(Response.Status.NOT_FOUND, e.getMessage());
+        } catch (ExcepcionOperacionNoPermitida e) {
+            return error(Response.Status.CONFLICT, e.getMessage());
+        } catch (ExcepcionPersistencia e) {
+            return error(Response.Status.INTERNAL_SERVER_ERROR, "Error interno al anular el pago");
+        }
+    }
+
+    @POST
+    @Path("{id}/comprobante")
+    public Response emitirComprobante(@PathParam("id") int id) {
+        try {
+            return Response.status(Response.Status.CREATED).entity(aRespuesta(comprobanteDAO.emitir(id))).build();
+        } catch (ExcepcionPagoNoEncontrado e) {
+            return error(Response.Status.NOT_FOUND, e.getMessage());
+        } catch (ExcepcionOperacionNoPermitida e) {
+            return error(Response.Status.CONFLICT, e.getMessage());
+        } catch (ExcepcionPersistencia e) {
+            return error(Response.Status.INTERNAL_SERVER_ERROR, "Error interno al emitir el comprobante");
+        }
+    }
+
+    @GET
+    @Path("{id}/comprobante")
+    public Response consultarComprobante(@PathParam("id") int id) {
+        try {
+            Optional<Comprobante> comprobante = comprobanteDAO.buscarPorPago(id);
+            if (comprobante.isEmpty()) {
+                return error(Response.Status.NOT_FOUND, "El pago no tiene comprobante");
+            }
+            return Response.ok(aRespuesta(comprobante.get())).build();
+        } catch (ExcepcionPersistencia e) {
+            return error(Response.Status.INTERNAL_SERVER_ERROR, "Error interno al consultar el comprobante");
+        }
+    }
+
+    private RespuestaComprobante aRespuesta(Comprobante c) {
+        return new RespuestaComprobante(c.getIdComprobante(), c.getNumero(), c.getFechaEmision().toString(),
+                c.getEstado().name(), aRespuesta(c.getPago()));
     }
 
     //Metodos de Apoyo

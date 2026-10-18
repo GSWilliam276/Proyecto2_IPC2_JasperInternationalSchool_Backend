@@ -138,10 +138,10 @@ public class AnioLectivoControlador {
         }
     }
 
-    /** El año lectivo activo, para mostrarlo en el inicio. Lo ven Admin y SuperAdmin. */
+    //El año lectivo activo, para mostrarlo en el inicio. Lo ven Admin y SuperAdmin
     @GET
     @Path("activo")
-    @RolesPermitidos({"ADMIN", "SUPERADMIN"})
+    @RolesPermitidos({"ADMIN", "SUPERADMIN", "SECRETARIA"})
     public Response activo() {
         try {
             Optional<AnioLectivo> activo = anioDAO.buscarActivo();

@@ -6,10 +6,9 @@ package com.usac.colegio.jasperschoolbackend.persistencia.implementacion;
 
 import com.usac.colegio.jasperschoolbackend.enums.ConceptoPago;
 import com.usac.colegio.jasperschoolbackend.enums.EstadoPago;
-import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionEstudianteNoEncontrado;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionOperacionNoPermitida;
+import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionPagoNoEncontrado;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionPersistencia;
-import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionReferenciaInvalida;
 import com.usac.colegio.jasperschoolbackend.modelo.Pago;
 import com.usac.colegio.jasperschoolbackend.persistencia.interfaces.PagoDAO;
 import com.usac.colegio.jasperschoolbackend.utilidades.ConexionBase;
@@ -20,14 +19,19 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.Month;
 import java.time.format.TextStyle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionActividadNoEncontrada;
+import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionEstudianteNoEncontrado;
+import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionReferenciaInvalida;
 /**
  *
  * @author eduar
@@ -193,6 +197,147 @@ public class PagoDAOPersistencia implements PagoDAO {
         return lista;
     }
 
+    @Override
+    public Pago registrarActividad(int idEstudiante, int idActividad, int idSecretaria)
+            throws ExcepcionEstudianteNoEncontrado, ExcepcionActividadNoEncontrada, ExcepcionOperacionNoPermitida,
+            ExcepcionReferenciaInvalida, ExcepcionPersistencia {
+        Connection con = null;
+        int idNuevo;
+        try {
+            con = ConexionBase.obtenerInstancia().getConexion();
+            con.setAutoCommit(false);
+
+            Contexto ctx = bloquearInscripcionActiva(con, idEstudiante);
+
+            int cupo;
+            BigDecimal costo;
+            try (PreparedStatement ps = con.prepareStatement(
+                    "SELECT estado, fecha, cupo, costo FROM actividad_extracurricular WHERE id_actividad = ? FOR UPDATE")) {
+                ps.setInt(1, idActividad);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (!rs.next()) {
+                        throw new ExcepcionActividadNoEncontrada("No existe una actividad con ese id");
+                    }
+                    if (!"ACTIVO".equals(rs.getString("estado"))) {
+                        throw new ExcepcionOperacionNoPermitida("La actividad está inactiva");
+                    }
+                    if (rs.getDate("fecha").toLocalDate().isBefore(LocalDate.now())) {
+                        throw new ExcepcionOperacionNoPermitida("La actividad ya se realizó");
+                    }
+                    cupo = rs.getInt("cupo");
+                    costo = rs.getBigDecimal("costo");
+                }
+            }
+            try (PreparedStatement ps = con.prepareStatement(
+                    "SELECT 1 FROM pago WHERE id_estudiante = ? AND id_actividad = ? AND estado = 'VIGENTE'")) {
+                ps.setInt(1, idEstudiante);
+                ps.setInt(2, idActividad);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        throw new ExcepcionOperacionNoPermitida("El estudiante ya pagó esta actividad");
+                    }
+                }
+            }
+            try (PreparedStatement ps = con.prepareStatement(
+                    "SELECT COUNT(*) FROM pago WHERE id_actividad = ? AND estado = 'VIGENTE'")) {
+                ps.setInt(1, idActividad);
+                try (ResultSet rs = ps.executeQuery()) {
+                    rs.next();
+                    if (rs.getInt(1) >= cupo) {
+                        throw new ExcepcionOperacionNoPermitida("La actividad no tiene cupo disponible");
+                    }
+                }
+            }
+            String sql = "INSERT INTO pago (id_estudiante, id_anio_lectivo, concepto, monto, id_actividad, fecha_pago, "
+                    + "id_secretaria, estado) VALUES (?, ?, 'ACTIVIDAD', ?, ?, ?, ?, 'VIGENTE')";
+            try (PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+                ps.setInt(1, idEstudiante);
+                ps.setInt(2, ctx.idAnio());
+                ps.setBigDecimal(3, costo);
+                ps.setInt(4, idActividad);
+                ps.setDate(5, Date.valueOf(LocalDate.now()));
+                ps.setInt(6, idSecretaria);
+                ps.executeUpdate();
+                try (ResultSet rs = ps.getGeneratedKeys()) {
+                    rs.next();
+                    idNuevo = rs.getInt(1);
+                }
+            }
+            con.commit();
+
+        } catch (SQLException e) {
+            deshacer(con);
+            if (e.getErrorCode() == 1062) {
+                throw new ExcepcionOperacionNoPermitida("El estudiante ya pagó esta actividad");
+            }
+            throw new ExcepcionPersistencia("Error al registrar el pago de actividad", e);
+        } catch (ExcepcionEstudianteNoEncontrado | ExcepcionActividadNoEncontrada | ExcepcionOperacionNoPermitida e) {
+            deshacer(con);
+            throw e;
+        } finally {
+            cerrar(con);
+        }
+        final int id = idNuevo;
+        return buscarPorId(id).orElseThrow(() -> new ExcepcionPersistencia("No se pudo leer el pago creado", null));
+    }
+
+    @Override
+    public void anular(int idPago, String motivo)
+            throws ExcepcionPagoNoEncontrado, ExcepcionOperacionNoPermitida, ExcepcionPersistencia {
+        Connection con = null;
+        try {
+            con = ConexionBase.obtenerInstancia().getConexion();
+            con.setAutoCommit(false);
+
+            Integer idMulta;
+            String sql = "SELECT p.estado, p.id_multa, a.estado AS anio_estado FROM pago p "
+                    + "JOIN anio_lectivo a ON a.id_anio_lectivo = p.id_anio_lectivo WHERE p.id_pago = ? FOR UPDATE OF p";
+            try (PreparedStatement ps = con.prepareStatement(sql)) {
+                ps.setInt(1, idPago);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (!rs.next()) {
+                        throw new ExcepcionPagoNoEncontrado("No existe un pago con ese id");
+                    }
+                    if (!"VIGENTE".equals(rs.getString("estado"))) {
+                        throw new ExcepcionOperacionNoPermitida("El pago ya está anulado");
+                    }
+                    if (!"ACTIVO".equals(rs.getString("anio_estado"))) {
+                        throw new ExcepcionOperacionNoPermitida("El pago pertenece a un año lectivo cerrado");
+                    }
+                    int multa = rs.getInt("id_multa");
+                    idMulta = rs.wasNull() ? null : multa;
+                }
+            }
+            try (PreparedStatement ps = con.prepareStatement(
+                    "UPDATE pago SET estado = 'ANULADO', motivo_anulacion = ?, fecha_anulacion = ? WHERE id_pago = ?")) {
+                ps.setString(1, motivo);
+                ps.setTimestamp(2, Timestamp.valueOf(LocalDateTime.now()));
+                ps.setInt(3, idPago);
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = con.prepareStatement("UPDATE comprobante SET estado = 'ANULADO' WHERE id_pago = ?")) {
+                ps.setInt(1, idPago);
+                ps.executeUpdate();
+            }
+            if (idMulta != null) {
+                try (PreparedStatement ps = con.prepareStatement("UPDATE multa SET estado = 'PENDIENTE' WHERE id_multa = ?")) {
+                    ps.setInt(1, idMulta);
+                    ps.executeUpdate();
+                }
+            }
+            con.commit();
+
+        } catch (SQLException e) {
+            deshacer(con);
+            throw new ExcepcionPersistencia("Error al anular el pago", e);
+        } catch (ExcepcionPagoNoEncontrado | ExcepcionOperacionNoPermitida e) {
+            deshacer(con);
+            throw e;
+        } finally {
+            cerrar(con);
+        }
+    }
+    
     //Metodos de Apoyo 
 
     //El estudiante debe existir y tener una inscripcion ACTIVA en el año lectivo activo. Se bloquea esa fila
