@@ -31,6 +31,7 @@ import java.util.Locale;
 import java.util.Optional;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionActividadNoEncontrada;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionEstudianteNoEncontrado;
+import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionMultaNoEncontrada;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionReferenciaInvalida;
 /**
  *
@@ -336,6 +337,84 @@ public class PagoDAOPersistencia implements PagoDAO {
         } finally {
             cerrar(con);
         }
+    }
+    
+    @Override
+    public Pago registrarMulta(int idMulta, int idSecretaria)
+            throws ExcepcionMultaNoEncontrada, ExcepcionOperacionNoPermitida, ExcepcionReferenciaInvalida,
+            ExcepcionPersistencia {
+        Connection con = null;
+        int idNuevo;
+        try {
+            con = ConexionBase.obtenerInstancia().getConexion();
+            con.setAutoCommit(false);
+
+            //1. la multa: debe existir y estar PENDIENTE. Se bloquea: dos cobros simultaneos no la pagan dos veces
+            BigDecimal monto;
+            int idEstudiante;
+            try (PreparedStatement ps = con.prepareStatement(
+                    "SELECT mu.estado, mu.monto, p.id_prestatario FROM multa mu "
+                    + "JOIN prestamo p ON p.id_prestamo = mu.id_prestamo WHERE mu.id_multa = ? FOR UPDATE OF mu")) {
+                ps.setInt(1, idMulta);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (!rs.next()) {
+                        throw new ExcepcionMultaNoEncontrada("No existe una multa con ese id");
+                    }
+                    if (!"PENDIENTE".equals(rs.getString("estado"))) {
+                        throw new ExcepcionOperacionNoPermitida("La multa ya está pagada");
+                    }
+                    monto = rs.getBigDecimal("monto");   //El monto se copia de la multa
+                    idEstudiante = rs.getInt("id_prestatario");
+                }
+            }
+
+            //2. el año donde entra el dinero: el activo. No se exige inscripcion
+            int idAnio;
+            try (PreparedStatement ps = con.prepareStatement(
+                    "SELECT id_anio_lectivo FROM anio_lectivo WHERE estado = 'ACTIVO' FOR UPDATE");
+                 ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    throw new ExcepcionReferenciaInvalida("No hay un año lectivo activo");
+                }
+                idAnio = rs.getInt(1);
+            }
+
+            //3. el pago y la multa, juntos
+            String sql = "INSERT INTO pago (id_estudiante, id_anio_lectivo, concepto, monto, id_multa, fecha_pago, "
+                    + "id_secretaria, estado) VALUES (?, ?, 'MULTA', ?, ?, ?, ?, 'VIGENTE')";
+            try (PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+                ps.setInt(1, idEstudiante);
+                ps.setInt(2, idAnio);
+                ps.setBigDecimal(3, monto);
+                ps.setInt(4, idMulta);
+                ps.setDate(5, Date.valueOf(LocalDate.now()));
+                ps.setInt(6, idSecretaria);
+                ps.executeUpdate();
+                try (ResultSet rs = ps.getGeneratedKeys()) {
+                    rs.next();
+                    idNuevo = rs.getInt(1);
+                }
+            }
+            try (PreparedStatement ps = con.prepareStatement("UPDATE multa SET estado = 'PAGADA' WHERE id_multa = ?")) {
+                ps.setInt(1, idMulta);
+                ps.executeUpdate();
+            }
+            con.commit();
+
+        } catch (SQLException e) {
+            deshacer(con);
+            if (e.getErrorCode() == 1062) {
+                throw new ExcepcionOperacionNoPermitida("La multa ya está pagada");
+            }
+            throw new ExcepcionPersistencia("Error al registrar el pago de la multa", e);
+        } catch (ExcepcionMultaNoEncontrada | ExcepcionOperacionNoPermitida | ExcepcionReferenciaInvalida e) {
+            deshacer(con);
+            throw e;
+        } finally {
+            cerrar(con);
+        }
+        final int id = idNuevo;
+        return buscarPorId(id).orElseThrow(() -> new ExcepcionPersistencia("No se pudo leer el pago creado", null));
     }
     
     //Metodos de Apoyo 

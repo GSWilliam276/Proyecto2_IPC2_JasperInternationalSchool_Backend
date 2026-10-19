@@ -7,6 +7,7 @@ package com.usac.colegio.jasperschoolbackend.controlador;
 import com.usac.colegio.jasperschoolbackend.enums.ConceptoPago;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionActividadNoEncontrada;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionEstudianteNoEncontrado;
+import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionMultaNoEncontrada;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionOperacionNoPermitida;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionPagoNoEncontrado;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionPersistencia;
@@ -25,6 +26,7 @@ import com.usac.colegio.jasperschoolbackend.transferencia.SolicitudAnularPago;
 import com.usac.colegio.jasperschoolbackend.transferencia.SolicitudPagoActividad;
 import com.usac.colegio.jasperschoolbackend.transferencia.SolicitudPagoInscripcion;
 import com.usac.colegio.jasperschoolbackend.transferencia.SolicitudPagoMensualidad;
+import com.usac.colegio.jasperschoolbackend.transferencia.SolicitudPagoMulta;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
@@ -223,6 +225,26 @@ public class PagoControlador {
                 c.getEstado().name(), aRespuesta(c.getPago()));
     }
 
+    @POST
+    @Path("multa")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response pagarMulta(SolicitudPagoMulta solicitud, @Context ContainerRequestContext contexto) {
+        if (solicitud == null || solicitud.getIdMulta() == null) {
+            return error(Response.Status.BAD_REQUEST, "La multa es obligatoria");
+        }
+        try {
+            int idSecretaria = Integer.parseInt(String.valueOf(contexto.getProperty("idUsuario")));
+            Pago pago = pagoDAO.registrarMulta(solicitud.getIdMulta(), idSecretaria);
+            return Response.status(Response.Status.CREATED).entity(aRespuesta(pago)).build();
+        } catch (ExcepcionMultaNoEncontrada e) {
+            return error(Response.Status.NOT_FOUND, e.getMessage());
+        } catch (ExcepcionOperacionNoPermitida | ExcepcionReferenciaInvalida e) {
+            return error(Response.Status.CONFLICT, e.getMessage());
+        } catch (ExcepcionPersistencia e) {
+            return error(Response.Status.INTERNAL_SERVER_ERROR, "Error interno al registrar el pago de la multa");
+        }
+    }
+    
     //Metodos de Apoyo
 
     private RespuestaPago aRespuesta(Pago p) {

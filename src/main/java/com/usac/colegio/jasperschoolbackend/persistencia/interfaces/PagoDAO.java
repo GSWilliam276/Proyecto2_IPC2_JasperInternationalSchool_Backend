@@ -7,6 +7,7 @@ package com.usac.colegio.jasperschoolbackend.persistencia.interfaces;
 import com.usac.colegio.jasperschoolbackend.enums.ConceptoPago;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionActividadNoEncontrada;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionEstudianteNoEncontrado;
+import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionMultaNoEncontrada;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionOperacionNoPermitida;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionPagoNoEncontrado;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionPersistencia;
@@ -35,6 +36,11 @@ public interface PagoDAO {
     //CU066. Filtros opcionales (null = sin filtro). Incluye los anulados, con su estado
     List<Pago> listar(int pagina, int tamanoPagina, Integer idEstudiante, ConceptoPago concepto,
                       LocalDate desde, LocalDate hasta) throws ExcepcionPersistencia;
+    
+    //CU065. Cobra una multa PENDIENTE en el año activo y la marca PAGADA, en una sola transaccion
+    Pago registrarMulta(int idMulta, int idSecretaria)
+            throws ExcepcionMultaNoEncontrada, ExcepcionOperacionNoPermitida, ExcepcionReferenciaInvalida,
+            ExcepcionPersistencia;
     
     //CU064. Pagar es inscribirse: valida actividad activa y vigente, cupo y que no este ya pagada
     Pago registrarActividad(int idEstudiante, int idActividad, int idSecretaria)
