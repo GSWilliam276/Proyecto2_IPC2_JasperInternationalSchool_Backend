@@ -22,4 +22,6 @@ public interface LibroDAO extends DAOGenerico<Libro> {
     //soloDisponibles = true es la vista del Estudiante: solo libros activos con ejemplares disponibles
     List<Libro> listarFiltrado(int pagina, int tamanoPagina, String busqueda, boolean soloDisponibles)
             throws ExcepcionPersistencia;
+    
+    void guardarImagen(int idLibro, String nombreArchivo) throws ExcepcionLibroNoEncontrado, ExcepcionPersistencia;
 }

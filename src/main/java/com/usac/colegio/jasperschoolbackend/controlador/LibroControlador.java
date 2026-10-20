@@ -29,8 +29,15 @@ import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.StreamingOutput;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import org.glassfish.jersey.media.multipart.FormDataParam;
 /**
  *
  * @author eduar
@@ -41,6 +48,9 @@ import java.util.List;
 public class LibroControlador {
     //Libros (CU070 a CU074). Consultar: Bibliotecario y Estudiante. El resto: Bibliotecario
     private static final int EJEMPLARES_MAXIMO = 1000;   //Tope razonable
+    //Se escribe con el nombre completo porque "Path" ya es la anotacion de JAX-RS
+    private static final java.nio.file.Path CARPETA_IMAGENES = Paths.get("C:\\jasper-imagenes\\libros");
+    private static final long IMAGEN_MAXIMA = 2L * 1024 * 1024;   //2 MB
 
     private final LibroDAO libroDAO = new LibroDAOPersistencia();
 
@@ -136,7 +146,88 @@ public class LibroControlador {
         }
     }
 
+    //Portada del libro: subir y ver
+
+    @POST
+    @Path("{id}/imagen")
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
+    @RolesPermitidos({"BIBLIOTECARIO"})
+    public Response subirImagen(@PathParam("id") int id,
+                                @FormDataParam("archivo") InputStream archivo) {
+        if (archivo == null) {
+            return error(Response.Status.BAD_REQUEST, "Debe enviar un archivo");
+        }
+        try {
+            if (libroDAO.buscarPorId(id).isEmpty()) {
+                return error(Response.Status.NOT_FOUND, "No existe un libro con ese id");
+            }
+            //Se lee con tope (2 MB + 1 byte): asi se rechaza sin cargar todo en memoria
+            byte[] datos = archivo.readNBytes((int) IMAGEN_MAXIMA + 1);
+            if (datos.length > IMAGEN_MAXIMA) {
+                return error(Response.Status.BAD_REQUEST, "La imagen no puede pasar de 2 MB");
+            }
+            String extension = detectarExtension(datos);
+            if (extension == null) {
+                return error(Response.Status.BAD_REQUEST, "La imagen debe ser JPG, PNG o WebP");
+            }
+            Files.createDirectories(CARPETA_IMAGENES);
+            String nombre = "libro-" + id + "." + extension;
+            //Si ya habia una portada con otra extension, se borra
+            for (String e : new String[] {"jpg", "png", "webp"}) {
+                Files.deleteIfExists(CARPETA_IMAGENES.resolve("libro-" + id + "." + e));
+            }
+            Files.write(CARPETA_IMAGENES.resolve(nombre), datos);
+            libroDAO.guardarImagen(id, nombre);
+            return Response.noContent().build();
+        } catch (IOException | ExcepcionPersistencia e) {
+            return error(Response.Status.INTERNAL_SERVER_ERROR, "Error interno al guardar la imagen");
+        }
+    }
+
+    @GET
+    @Path("{id}/imagen")
+    @Produces({"image/jpeg", "image/png", "image/webp", MediaType.APPLICATION_JSON})
+    public Response verImagen(@PathParam("id") int id) {
+        try {
+            Optional<Libro> libro = libroDAO.buscarPorId(id);
+            if (libro.isEmpty() || libro.get().getImagen() == null) {
+                return Response.status(Response.Status.NOT_FOUND).type(MediaType.APPLICATION_JSON)
+                        .entity(new RespuestaError("El libro no tiene imagen")).build();
+            }
+            //El nombre sale de la base y se limpia otra vez: nunca se arma una ruta con datos del usuario
+            java.nio.file.Path ruta = CARPETA_IMAGENES.resolve(
+                    Paths.get(libro.get().getImagen()).getFileName().toString());
+            if (!Files.exists(ruta)) {
+                return Response.status(Response.Status.NOT_FOUND).type(MediaType.APPLICATION_JSON)
+                        .entity(new RespuestaError("No se encontró el archivo de la imagen")).build();
+            }
+            String nombreRuta = ruta.toString();
+            String tipo = nombreRuta.endsWith(".png") ? "image/png"
+                    : nombreRuta.endsWith(".webp") ? "image/webp" : "image/jpeg";
+            StreamingOutput salida = out -> Files.copy(ruta, out);
+            return Response.ok(salida, tipo).build();
+        } catch (ExcepcionPersistencia e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+                    .entity(new RespuestaError("Error interno al leer la imagen")).build();
+        }
+    }
+
     //Metodos de Apoyo
+
+    //Reconoce el formato por los primeros bytes, no por el nombre que mande el usuario
+    private String detectarExtension(byte[] d) {
+        if (d.length > 3 && (d[0] & 0xFF) == 0xFF && (d[1] & 0xFF) == 0xD8 && (d[2] & 0xFF) == 0xFF) {
+            return "jpg";
+        }
+        if (d.length > 8 && (d[0] & 0xFF) == 0x89 && d[1] == 'P' && d[2] == 'N' && d[3] == 'G') {
+            return "png";
+        }
+        if (d.length > 12 && d[0] == 'R' && d[1] == 'I' && d[2] == 'F' && d[3] == 'F'
+                && d[8] == 'W' && d[9] == 'E' && d[10] == 'B' && d[11] == 'P') {
+            return "webp";
+        }
+        return null;
+    }
 
     private String validar(SolicitudLibro s) {
         if (s == null || vacio(s.getTitulo()) || vacio(s.getAutor()) || vacio(s.getEditorial())
@@ -167,7 +258,7 @@ public class LibroControlador {
     private RespuestaLibro aRespuesta(Libro l) {
         return new RespuestaLibro(l.getIdLibro(), l.getTitulo(), l.getAutor(), l.getEditorial(),
                 l.getEjemplaresTotales(), l.getEjemplaresDisponibles(), l.getEjemplaresPrestados(),
-                l.getEstado().name());
+                l.getEstado().name(), l.getImagen() != null);
     }
 
     private Response error(Response.Status estado, String mensaje) {

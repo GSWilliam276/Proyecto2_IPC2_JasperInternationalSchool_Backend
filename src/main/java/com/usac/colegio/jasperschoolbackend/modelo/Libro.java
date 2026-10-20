@@ -18,6 +18,7 @@ public class Libro {
     private int ejemplaresTotales;
     private int ejemplaresDisponibles;
     private EstadoGeneral estado;
+    private String imagen;   //Nombre del archivo; null si no tiene portada
 
     public Libro(int idLibro, String titulo, String autor, String editorial, int ejemplaresTotales,
                  int ejemplaresDisponibles, EstadoGeneral estado) {
@@ -40,4 +41,6 @@ public class Libro {
     public int getEjemplaresTotales() { return ejemplaresTotales; }
     public int getEjemplaresDisponibles() { return ejemplaresDisponibles; }
     public EstadoGeneral getEstado() { return estado; }
+    public String getImagen() { return imagen; }
+    public void setImagen(String imagen) { this.imagen = imagen; }
 }

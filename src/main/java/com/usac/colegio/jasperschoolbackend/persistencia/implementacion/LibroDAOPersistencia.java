@@ -158,6 +158,18 @@ public class LibroDAOPersistencia implements LibroDAO {
         cambiarEstado(idLibro, EstadoGeneral.INACTIVO);
     }
 
+    @Override
+    public void guardarImagen(int idLibro, String nombreArchivo) throws ExcepcionLibroNoEncontrado, ExcepcionPersistencia {
+        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+             PreparedStatement ps = con.prepareStatement("UPDATE libro SET imagen = ? WHERE id_libro = ?")) {
+            ps.setString(1, nombreArchivo);
+            ps.setInt(2, idLibro);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new ExcepcionPersistencia("Error al guardar la imagen del libro", e);
+        }
+    }
+    
     //Metodos de Apoyo
 
     private void cambiarEstado(int idLibro, EstadoGeneral nuevo)
@@ -205,9 +217,11 @@ public class LibroDAOPersistencia implements LibroDAO {
     }
 
     private Libro mapear(ResultSet rs) throws SQLException {
-        return new Libro(rs.getInt("id_libro"), rs.getString("titulo"), rs.getString("autor"),
+        Libro l = new Libro(rs.getInt("id_libro"), rs.getString("titulo"), rs.getString("autor"),
                 rs.getString("editorial"), rs.getInt("ejemplares_totales"), rs.getInt("ejemplares_disponibles"),
                 EstadoGeneral.valueOf(rs.getString("estado")));
+        l.setImagen(rs.getString("imagen"));
+        return l;
     }
 
     //El UNIQUE (titulo, autor, editorial) es la garantia real contra duplicados

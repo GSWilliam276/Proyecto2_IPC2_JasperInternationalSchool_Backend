@@ -9,7 +9,7 @@ package com.usac.colegio.jasperschoolbackend.transferencia;
  * @author eduar
  */
 public class RespuestaLibro {
-    private int idLibro;
+        private int idLibro;
     private String titulo;
     private String autor;
     private String editorial;
@@ -17,12 +17,13 @@ public class RespuestaLibro {
     private int ejemplaresDisponibles;
     private int ejemplaresPrestados;
     private String estado;
+    private boolean tieneImagen;   //true si el libro tiene portada
 
     public RespuestaLibro() {
     }
 
     public RespuestaLibro(int idLibro, String titulo, String autor, String editorial, int ejemplaresTotales,
-                          int ejemplaresDisponibles, int ejemplaresPrestados, String estado) {
+                          int ejemplaresDisponibles, int ejemplaresPrestados, String estado, boolean tieneImagen) {
         this.idLibro = idLibro;
         this.titulo = titulo;
         this.autor = autor;
@@ -31,6 +32,7 @@ public class RespuestaLibro {
         this.ejemplaresDisponibles = ejemplaresDisponibles;
         this.ejemplaresPrestados = ejemplaresPrestados;
         this.estado = estado;
+        this.tieneImagen = tieneImagen;
     }
 
     public int getIdLibro() { return idLibro; }
@@ -41,4 +43,5 @@ public class RespuestaLibro {
     public int getEjemplaresDisponibles() { return ejemplaresDisponibles; }
     public int getEjemplaresPrestados() { return ejemplaresPrestados; }
     public String getEstado() { return estado; }
+    public boolean isTieneImagen() { return tieneImagen; }
 }

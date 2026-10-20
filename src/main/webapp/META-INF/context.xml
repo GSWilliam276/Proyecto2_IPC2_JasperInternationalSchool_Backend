@@ -1,19 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Context path="/JasperSchoolBackend">
-    <!-- Pool de conexiones administrado por Tomcat -->
-    <Resource name="jdbc/colegio"
-              auth="Container"
-              type="javax.sql.DataSource"
-              factory="org.apache.tomcat.jdbc.pool.DataSourceFactory"
-              driverClassName="com.mysql.cj.jdbc.Driver"
-              url="jdbc:mysql://localhost:3306/sistema_colegio"
-              username="gs_william237"
-              password="59487059@"
-              maxActive="20"
-              maxIdle="10"
-              minIdle="5"
-              initialSize="5"
-              maxWait="10000"
-              testOnBorrow="true"
-              validationQuery="SELECT 1"/>
+  <!-- Pool de conexiones administrado por Tomcat -->
+  <Resource auth="Container" driverClassName="com.mysql.cj.jdbc.Driver" factory="org.apache.tomcat.jdbc.pool.DataSourceFactory" initialSize="5" maxActive="20" maxIdle="10" maxWait="10000" minIdle="5" name="jdbc/colegio" password="59487059@" testOnBorrow="true" type="javax.sql.DataSource" url="jdbc:mysql://localhost:3306/sistema_colegio" username="gs_william237" validationQuery="SELECT 1"/>
 </Context>
