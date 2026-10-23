@@ -33,4 +33,7 @@ public interface InscripcionDAO {
     //CU060. Filtros opcionales (null = sin filtro). Sin idAnio se usa el año lectivo activo
     List<Inscripcion> listar(int pagina, int tamanoPagina, Integer idAnio, Integer idGrado, Integer idSeccion,
                              Integer idEstudiante) throws ExcepcionPersistencia;
+    
+    //Estudiantes con inscripcion ACTIVA en la seccion (nomina del maestro)
+    List<Inscripcion> listarActivasDeSeccion(int idSeccion) throws ExcepcionPersistencia;
 }

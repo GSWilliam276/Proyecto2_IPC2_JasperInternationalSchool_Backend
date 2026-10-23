@@ -292,6 +292,24 @@ public class InscripcionDAOPersistencia implements InscripcionDAO{
         }
         return lista;
     }
+    
+    @Override
+    public List<Inscripcion> listarActivasDeSeccion(int idSeccion) throws ExcepcionPersistencia {
+        String sql = SELECCIONAR + "WHERE i.id_seccion = ? AND i.estado = 'ACTIVA' ORDER BY u.nombre, i.id_inscripcion";
+        List<Inscripcion> lista = new ArrayList<>();
+        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, idSeccion);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    lista.add(mapear(rs));
+                }
+            }
+        } catch (SQLException e) {
+            throw new ExcepcionPersistencia("Error al listar la nómina", e);
+        }
+        return lista;
+    }
 
     //Metodos de Apoyo
 
