@@ -19,4 +19,6 @@ public interface UsuarioDAO {
     boolean existeCui(String cui) throws ExcepcionPersistencia;
     void actualizarContrasena(int idUsuario, String nuevaContrasena) throws ExcepcionPersistencia;
     String determinarRol(int idUsuario) throws ExcepcionPersistencia;
+    //El estudiante solo puede iniciar sesion si tiene una inscripcion ACTIVA en el año lectivo activo
+    boolean tieneInscripcionActiva(int idEstudiante) throws ExcepcionPersistencia;
 }

@@ -4,10 +4,12 @@
  */
 package com.usac.colegio.jasperschoolbackend.persistencia.implementacion;
 
+import com.usac.colegio.jasperschoolbackend.enums.EstadoEstudiante;
 import com.usac.colegio.jasperschoolbackend.enums.EstadoGeneral;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionPersistencia;
 import com.usac.colegio.jasperschoolbackend.modelo.Admin;
 import com.usac.colegio.jasperschoolbackend.modelo.Bibliotecario;
+import com.usac.colegio.jasperschoolbackend.modelo.Estudiante;
 import com.usac.colegio.jasperschoolbackend.modelo.Maestro;
 import com.usac.colegio.jasperschoolbackend.modelo.Secretaria;
 import com.usac.colegio.jasperschoolbackend.modelo.SuperAdmin;
@@ -54,7 +56,9 @@ public class UsuarioDAOPersistencia implements UsuarioDAO {
                 if (rs.next()) {
                     //Si se encontro la fila en usuario, hay que armar el objeto
                     //concreto correcto consultando las tablas hijas
-                    return Optional.of(construirUsuarioConRol(con, rs));
+                    Usuario u = construirUsuarioConRol(con, rs);
+                    u.setContrasenaProvisional(rs.getBoolean("contrasena_provisional"));
+                    return Optional.of(u);
                 }
             }
         } catch (SQLException e) {
@@ -115,7 +119,7 @@ public class UsuarioDAOPersistencia implements UsuarioDAO {
     @Override
     public void actualizarContrasena(int idUsuario, String nuevaContrasena) throws ExcepcionPersistencia {
         //Usado por Cambiar Contraseña (CU102) y Restablecer Contraseña (CU003)
-        String sql = "UPDATE usuario SET contrasena = ? WHERE id_usuario = ?";
+        String sql = "UPDATE usuario SET contrasena = ?, contrasena_provisional = FALSE WHERE id_usuario = ?";
         try (Connection con = ConexionBase.obtenerInstancia().getConexion();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
@@ -142,9 +146,23 @@ public class UsuarioDAOPersistencia implements UsuarioDAO {
             throw new ExcepcionPersistencia("Error al determinar rol", e);
         }
     }
+    
+    @Override
+    public boolean tieneInscripcionActiva(int idEstudiante) throws ExcepcionPersistencia {
+        String sql = "SELECT 1 FROM inscripcion i JOIN anio_lectivo a ON a.id_anio_lectivo = i.id_anio_lectivo "
+                + "WHERE i.id_estudiante = ? AND i.estado = 'ACTIVA' AND a.estado = 'ACTIVO' LIMIT 1";
+        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, idEstudiante);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        } catch (SQLException e) {
+            throw new ExcepcionPersistencia("Error al revisar la inscripción del estudiante", e);
+        }
+    }
 
-    //Metodos privados propios de apoyo
-
+    //Metodos de apoyo
     
     //Arma el objeto Usuario concreto (Admin o SuperAdmin) a partir de una fila
     //de la tabla usuario, consultando ademas la tabla hija correspondiente
@@ -181,6 +199,22 @@ public class UsuarioDAOPersistencia implements UsuarioDAO {
         EstadoGeneral estadoBibliotecario = buscarEstado(con, "bibliotecario", idUsuario);
         if (estadoBibliotecario != null) {
             return new Bibliotecario(idUsuario, cui, nombre, correo, telefono, direccion, contrasena, estadoBibliotecario);
+        }
+        
+        //El estudiante tiene su propio estado (ACTIVO, INACTIVO, GRADUADO)
+        try (PreparedStatement ps = con.prepareStatement("SELECT * FROM estudiante WHERE id_usuario = ?")) {
+            ps.setInt(1, idUsuario);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return new Estudiante(idUsuario, cui, nombre, correo, telefono, direccion, contrasena,
+                            rs.getDate("fecha_nacimiento").toLocalDate(), rs.getString("alergias"),
+                            rs.getString("condiciones_medicas"), rs.getString("encargado_nombre"),
+                            rs.getString("encargado_telefono"), rs.getString("encargado_parentesco"),
+                            rs.getString("encargado2_nombre"), rs.getString("encargado2_telefono"),
+                            rs.getString("encargado2_parentesco"),
+                            EstadoEstudiante.valueOf(rs.getString("estado")));
+                }
+            }
         }
 
         //Si llega aca, hay una fila en usuario sin fila correspondiente en ninguna

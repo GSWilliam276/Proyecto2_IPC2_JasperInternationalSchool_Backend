@@ -13,17 +13,19 @@ public class RespuestaInicioSesion {
     private int idUsuario;
     private String nombre;
     private String rol;
+    private boolean contrasenaProvisional;
 
     public RespuestaInicioSesion() {
     }
 
-    public RespuestaInicioSesion(String token, int idUsuario, String nombre, String rol) {
+    public RespuestaInicioSesion(String token, int idUsuario, String nombre, String rol, boolean contrasenaProvisional) {
         this.token = token;
         this.idUsuario = idUsuario;
         this.nombre = nombre;
         this.rol = rol;
+        this.contrasenaProvisional = contrasenaProvisional;
     }
-
+    
     public String getToken() { return token; }
     public void setToken(String token) { this.token = token; }
 
@@ -35,4 +37,7 @@ public class RespuestaInicioSesion {
 
     public String getRol() { return rol; }
     public void setRol(String rol) { this.rol = rol; }
+    
+    public boolean isContrasenaProvisional() { return contrasenaProvisional; }
+    public void setContrasenaProvisional(boolean v) { this.contrasenaProvisional = v; }
 }

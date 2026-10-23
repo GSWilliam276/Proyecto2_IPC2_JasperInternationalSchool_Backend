@@ -37,7 +37,9 @@ import jakarta.ws.rs.core.Context;
 import java.time.LocalDateTime;
 import com.usac.colegio.jasperschoolbackend.persistencia.implementacion.CodigoRecuperacionDAOPersistencia;
 import com.usac.colegio.jasperschoolbackend.correo.EnviadorCorreoConsola;
+import com.usac.colegio.jasperschoolbackend.enums.EstadoEstudiante;
 import com.usac.colegio.jasperschoolbackend.modelo.Bibliotecario;
+import com.usac.colegio.jasperschoolbackend.modelo.Estudiante;
 import com.usac.colegio.jasperschoolbackend.modelo.Maestro;
 import com.usac.colegio.jasperschoolbackend.modelo.Secretaria;
 /**
@@ -85,8 +87,8 @@ public class AutenticacionControlador {
             String rol = obtenerRol(usuario);
             String token = JwtUtil.generar(usuario.getIdUsuario(), rol);
 
-            return Response.ok(new RespuestaInicioSesion(token, usuario.getIdUsuario(), usuario.getNombre(), rol))
-                    .build();
+            return Response.ok(new RespuestaInicioSesion(token, usuario.getIdUsuario(), usuario.getNombre(), rol,
+                    usuario.isContrasenaProvisional())).build();
 
         } catch (ExcepcionPersistencia e) {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
@@ -107,7 +109,7 @@ public class AutenticacionControlador {
             return respuestaError(Response.Status.BAD_REQUEST, "Todos los campos son obligatorios");
         }
         String nueva = solicitud.getContrasenaNueva();
-        // el maximo de 64 evita el limite de 72 bytes de BCrypt
+        //El maximo de 64 evita el limite de 72 bytes de BCrypt
         if (nueva.length() < 8 || nueva.length() > 64) {
             return respuestaError(Response.Status.BAD_REQUEST, "La contraseña nueva debe tener entre 8 y 64 caracteres");
         }
@@ -115,7 +117,7 @@ public class AutenticacionControlador {
             return respuestaError(Response.Status.BAD_REQUEST, "La contraseña nueva debe ser distinta de la actual");
         }
 
-        // el id viene del token que valido el filtro, no de lo que mande el navegador
+        //El id viene del token que valido el filtro, no de lo que mande el navegador
         int idUsuario = (Integer) peticion.getProperty("idUsuario");
 
         try {
@@ -123,7 +125,7 @@ public class AutenticacionControlador {
             if (usuario.isEmpty()) {
                 return respuestaError(Response.Status.NOT_FOUND, "No existe el usuario");
             }
-            // 400 y no 401: un 401 haria que Angular cierre la sesion por un simple error de tipeo
+            //400 y no 401: un 401 haria que Angular cierre la sesion por un simple error de tipeo
             if (!usuario.get().validarContrasena(solicitud.getContrasenaActual())) {
                 return respuestaError(Response.Status.BAD_REQUEST, "La contraseña actual no es correcta");
             }
@@ -215,7 +217,11 @@ public class AutenticacionControlador {
         return null;
     }
 
-    private boolean estaActivo(Usuario usuario) {
+    //El estudiante, ademas de estar ACTIVO, necesita una inscripcion activa en el año lectivo activo
+    private boolean estaActivo(Usuario usuario) throws ExcepcionPersistencia {
+        if (usuario instanceof Estudiante e) {
+            return e.getEstado() == EstadoEstudiante.ACTIVO && usuarioDAO.tieneInscripcionActiva(e.getIdUsuario());
+        }
         return estadoDe(usuario) == EstadoGeneral.ACTIVO;
     }
 
@@ -225,6 +231,7 @@ public class AutenticacionControlador {
         if (usuario instanceof Maestro) return "MAESTRO";
         if (usuario instanceof Secretaria) return "SECRETARIA";
         if (usuario instanceof Bibliotecario) return "BIBLIOTECARIO";
+        if (usuario instanceof Estudiante) return "ESTUDIANTE";
         throw new IllegalStateException("Tipo de usuario sin rol definido");
     }
 

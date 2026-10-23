@@ -17,6 +17,7 @@ public abstract class Usuario {
     private String telefono;
     private String direccion;
     private String contrasena;
+    private boolean contrasenaProvisional;
 
     public Usuario() {
     }
@@ -59,4 +60,7 @@ public abstract class Usuario {
         }
         return ContrasenaUtil.verificar(intentada, contrasena);
     }
+    
+    public boolean isContrasenaProvisional() { return contrasenaProvisional; }
+    public void setContrasenaProvisional(boolean contrasenaProvisional) { this.contrasenaProvisional = contrasenaProvisional; }
 }
