@@ -212,6 +212,24 @@ public class CurriculoDAOPersistencia implements CurriculoDAO{
                     }
                 }
             }
+            //Tampoco se quita un curso cuyo maestro ya registro notas en el año lectivo activo
+            String sqlNotas = "SELECT 1 FROM asignacion_maestro am "
+                    + "JOIN seccion s ON s.id_seccion = am.id_seccion "
+                    + "JOIN anio_lectivo a ON a.id_anio_lectivo = s.id_anio_lectivo "
+                    + "JOIN curriculo cu ON cu.id_grado = s.id_grado AND cu.carrera_clave = s.carrera_clave "
+                    + "WHERE cu.id_curriculo = ? AND am.id_curso = ? AND a.estado = 'ACTIVO' AND ("
+                    + "EXISTS (SELECT 1 FROM nota_final nf WHERE nf.id_asignacion = am.id_asignacion) "
+                    + "OR EXISTS (SELECT 1 FROM nota n JOIN actividad_zona z ON z.id_actividad_zona = n.id_actividad_zona "
+                    + "WHERE z.id_asignacion = am.id_asignacion)) LIMIT 1";
+            try (PreparedStatement ps = con.prepareStatement(sqlNotas)) {
+                ps.setInt(1, idCurriculo);
+                ps.setInt(2, idCurso);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        throw new ExcepcionReferenciaInvalida("El curso ya tiene notas registradas: no se puede quitar");
+                    }
+                }
+            }
 
             try (PreparedStatement ps = con.prepareStatement(
                     "DELETE FROM curriculo_curso WHERE id_curriculo = ? AND id_curso = ?")) {

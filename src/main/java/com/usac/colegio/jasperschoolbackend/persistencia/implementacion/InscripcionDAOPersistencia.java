@@ -197,7 +197,9 @@ public class InscripcionDAOPersistencia implements InscripcionDAO{
             con = ConexionBase.obtenerInstancia().getConexion();
             con.setAutoCommit(false);
 
-            String sql = "SELECT i.estado, a.estado AS anio_estado FROM inscripcion i "
+            int idEstudiante;
+            int idSeccion;
+            String sql = "SELECT i.estado, i.id_estudiante, i.id_seccion, a.estado AS anio_estado FROM inscripcion i "
                     + "JOIN anio_lectivo a ON a.id_anio_lectivo = i.id_anio_lectivo "
                     + "WHERE i.id_inscripcion = ? FOR UPDATE OF i";
             try (PreparedStatement ps = con.prepareStatement(sql)) {
@@ -212,9 +214,28 @@ public class InscripcionDAOPersistencia implements InscripcionDAO{
                     if (EstadoInscripcion.valueOf(rs.getString("estado")) != EstadoInscripcion.ACTIVA) {
                         throw new ExcepcionOperacionNoPermitida("La inscripción ya está anulada");
                     }
+                    idEstudiante = rs.getInt("id_estudiante");
+                    idSeccion = rs.getInt("id_seccion");
                 }
             }
-            //la regla "el estudiante ya tiene notas en esa seccion" se agrega en la Iteracion 4, cuando existan las notas
+
+            //No se anula si el estudiante ya tiene notas en cursos de esa seccion
+            String sqlNotas = "SELECT 1 FROM asignacion_maestro am WHERE am.id_seccion = ? AND ("
+                    + "EXISTS (SELECT 1 FROM nota_final nf WHERE nf.id_asignacion = am.id_asignacion AND nf.id_estudiante = ?) "
+                    + "OR EXISTS (SELECT 1 FROM nota n JOIN actividad_zona z ON z.id_actividad_zona = n.id_actividad_zona "
+                    + "WHERE z.id_asignacion = am.id_asignacion AND n.id_estudiante = ?)) LIMIT 1";
+            try (PreparedStatement ps = con.prepareStatement(sqlNotas)) {
+                ps.setInt(1, idSeccion);
+                ps.setInt(2, idEstudiante);
+                ps.setInt(3, idEstudiante);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        throw new ExcepcionOperacionNoPermitida(
+                                "El estudiante ya tiene notas en esta sección: no se puede anular la inscripción");
+                    }
+                }
+            }
+
             try (PreparedStatement ps = con.prepareStatement(
                     "UPDATE inscripcion SET estado = 'ANULADA' WHERE id_inscripcion = ?")) {
                 ps.setInt(1, idInscripcion);

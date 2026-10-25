@@ -171,7 +171,29 @@ public class AsignacionMaestroDAOPersistencia implements AsignacionMaestroDAO{
                     }
                 }
             }
-            //La regla "el maestro ya registro notas en ese curso" se agrega en la Iteracion 4, cuando existan las notas
+            //No se quita la asignacion si el maestro ya registro notas de zona o examen final en ese curso
+            String sqlNotas = "SELECT 1 FROM nota n JOIN actividad_zona z ON z.id_actividad_zona = n.id_actividad_zona "
+                    + "WHERE z.id_asignacion = ? "
+                    + "UNION ALL SELECT 1 FROM nota_final nf WHERE nf.id_asignacion = ? LIMIT 1";
+            try (PreparedStatement ps = con.prepareStatement(sqlNotas)) {
+                ps.setInt(1, idAsignacion);
+                ps.setInt(2, idAsignacion);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        throw new ExcepcionOperacionNoPermitida(
+                                "El maestro ya registró notas en este curso: no se puede quitar la asignación");
+                    }
+                }
+            }
+            //Las actividades de zona y la asistencia sin notas se eliminan junto con la asignacion
+            try (PreparedStatement ps = con.prepareStatement("DELETE FROM asistencia WHERE id_asignacion = ?")) {
+                ps.setInt(1, idAsignacion);
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = con.prepareStatement("DELETE FROM actividad_zona WHERE id_asignacion = ?")) {
+                ps.setInt(1, idAsignacion);
+                ps.executeUpdate();
+            }
             try (PreparedStatement ps = con.prepareStatement("DELETE FROM asignacion_maestro WHERE id_asignacion = ?")) {
                 ps.setInt(1, idAsignacion);
                 ps.executeUpdate();
