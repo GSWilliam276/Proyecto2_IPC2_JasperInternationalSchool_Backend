@@ -12,24 +12,30 @@ import com.usac.colegio.jasperschoolbackend.modelo.ActividadZona;
 import com.usac.colegio.jasperschoolbackend.modelo.AsignacionMaestro;
 import com.usac.colegio.jasperschoolbackend.modelo.Inscripcion;
 import com.usac.colegio.jasperschoolbackend.modelo.RegistroAsistencia;
+import com.usac.colegio.jasperschoolbackend.modelo.RegistroNota;
 import com.usac.colegio.jasperschoolbackend.persistencia.implementacion.AsignacionMaestroDAOPersistencia;
 import com.usac.colegio.jasperschoolbackend.persistencia.implementacion.AsistenciaDAOPersistencia;
 import com.usac.colegio.jasperschoolbackend.persistencia.implementacion.InscripcionDAOPersistencia;
+import com.usac.colegio.jasperschoolbackend.persistencia.implementacion.NotaDAOPersistencia;
 import com.usac.colegio.jasperschoolbackend.persistencia.implementacion.ZonaDAOPersistencia;
 import com.usac.colegio.jasperschoolbackend.persistencia.interfaces.AsignacionMaestroDAO;
 import com.usac.colegio.jasperschoolbackend.persistencia.interfaces.AsistenciaDAO;
 import com.usac.colegio.jasperschoolbackend.persistencia.interfaces.InscripcionDAO;
+import com.usac.colegio.jasperschoolbackend.persistencia.interfaces.NotaDAO;
 import com.usac.colegio.jasperschoolbackend.persistencia.interfaces.ZonaDAO;
 import com.usac.colegio.jasperschoolbackend.seguridad.AccesoMaestro;
 import com.usac.colegio.jasperschoolbackend.seguridad.RolesPermitidos;
 import com.usac.colegio.jasperschoolbackend.transferencia.MarcaAsistencia;
+import com.usac.colegio.jasperschoolbackend.transferencia.NotaEstudiante;
 import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaAlumno;
 import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaAsignacion;
 import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaAsistencia;
 import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaError;
 import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaListaZona;
+import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaNota;
 import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaZona;
 import com.usac.colegio.jasperschoolbackend.transferencia.SolicitudAsistencia;
+import com.usac.colegio.jasperschoolbackend.transferencia.SolicitudNotas;
 import com.usac.colegio.jasperschoolbackend.transferencia.SolicitudZona;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
@@ -64,6 +70,7 @@ public class MaestroControlador {
     private final InscripcionDAO inscripcionDAO = new InscripcionDAOPersistencia();
     private final AsistenciaDAO asistenciaDAO = new AsistenciaDAOPersistencia();
     private final ZonaDAO zonaDAO = new ZonaDAOPersistencia();
+    private final NotaDAO notaDAO = new NotaDAOPersistencia();
 
     @GET
     @Path("asignaciones")
@@ -307,6 +314,88 @@ public class MaestroControlador {
             return error(Response.Status.CONFLICT, e.getMessage());
         }
         return error(Response.Status.INTERNAL_SERVER_ERROR, mensajeGenerico);
+    }
+    
+    @GET
+    @Path("asignaciones/{id}/zona/{idZona}/notas")
+    public Response notasZona(@PathParam("id") int id, @PathParam("idZona") int idZona,
+                              @Context ContainerRequestContext contexto) {
+        try {
+            AccesoMaestro.asignacionPropia(asignacionDAO, id, idMaestro(contexto));
+            return Response.ok(aNotas(notaDAO.planillaZona(id, idZona))).build();
+        } catch (ExcepcionPersistencia e) {
+            return errorDe(e, "Error interno al consultar las notas");
+        }
+    }
+
+    @PUT
+    @Path("asignaciones/{id}/zona/{idZona}/notas")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response guardarNotasZona(@PathParam("id") int id, @PathParam("idZona") int idZona,
+                                     SolicitudNotas s, @Context ContainerRequestContext contexto) {
+        Map<Integer, BigDecimal> mapa = aMapa(s);
+        if (mapa == null) {
+            return error(Response.Status.BAD_REQUEST, "Cada nota necesita el estudiante y el valor, sin repetir estudiantes");
+        }
+        try {
+            AccesoMaestro.asignacionPropia(asignacionDAO, id, idMaestro(contexto));
+            notaDAO.guardarZona(id, idZona, mapa);
+            return Response.noContent().build();
+        } catch (ExcepcionPersistencia e) {
+            return errorDe(e, "Error interno al guardar las notas");
+        }
+    }
+
+    @GET
+    @Path("asignaciones/{id}/final")
+    public Response notasFinal(@PathParam("id") int id, @Context ContainerRequestContext contexto) {
+        try {
+            AccesoMaestro.asignacionPropia(asignacionDAO, id, idMaestro(contexto));
+            return Response.ok(aNotas(notaDAO.planillaFinal(id))).build();
+        } catch (ExcepcionPersistencia e) {
+            return errorDe(e, "Error interno al consultar el examen final");
+        }
+    }
+
+    @PUT
+    @Path("asignaciones/{id}/final")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response guardarFinal(@PathParam("id") int id, SolicitudNotas s,
+                                 @Context ContainerRequestContext contexto) {
+        Map<Integer, BigDecimal> mapa = aMapa(s);
+        if (mapa == null) {
+            return error(Response.Status.BAD_REQUEST, "Cada nota necesita el estudiante y el valor, sin repetir estudiantes");
+        }
+        try {
+            AccesoMaestro.asignacionPropia(asignacionDAO, id, idMaestro(contexto));
+            notaDAO.guardarFinal(id, mapa);
+            return Response.noContent().build();
+        } catch (ExcepcionPersistencia e) {
+            return errorDe(e, "Error interno al guardar el examen final");
+        }
+    }
+
+    //null si el cuerpo es invalido (vacio, datos faltantes o estudiante repetido)
+    private Map<Integer, BigDecimal> aMapa(SolicitudNotas s) {
+        if (s == null || s.getNotas() == null || s.getNotas().isEmpty()) {
+            return null;
+        }
+        Map<Integer, BigDecimal> mapa = new LinkedHashMap<>();
+        for (NotaEstudiante n : s.getNotas()) {
+            if (n == null || n.getIdEstudiante() == null || n.getValor() == null
+                    || mapa.put(n.getIdEstudiante(), n.getValor()) != null) {
+                return null;
+            }
+        }
+        return mapa;
+    }
+
+    private List<RespuestaNota> aNotas(List<RegistroNota> lista) {
+        List<RespuestaNota> r = new ArrayList<>();
+        for (RegistroNota n : lista) {
+            r.add(new RespuestaNota(n.getIdEstudiante(), n.getEstudianteNombre(), n.getValor()));
+        }
+        return r;
     }
     
     private Response error(Response.Status estado, String mensaje) {
