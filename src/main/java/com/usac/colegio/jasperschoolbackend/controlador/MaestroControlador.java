@@ -8,15 +8,18 @@ import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionAsignacionAjena
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionAsignacionNoEncontrada;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionOperacionNoPermitida;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionPersistencia;
+import com.usac.colegio.jasperschoolbackend.modelo.ActividadZona;
 import com.usac.colegio.jasperschoolbackend.modelo.AsignacionMaestro;
 import com.usac.colegio.jasperschoolbackend.modelo.Inscripcion;
 import com.usac.colegio.jasperschoolbackend.modelo.RegistroAsistencia;
 import com.usac.colegio.jasperschoolbackend.persistencia.implementacion.AsignacionMaestroDAOPersistencia;
 import com.usac.colegio.jasperschoolbackend.persistencia.implementacion.AsistenciaDAOPersistencia;
 import com.usac.colegio.jasperschoolbackend.persistencia.implementacion.InscripcionDAOPersistencia;
+import com.usac.colegio.jasperschoolbackend.persistencia.implementacion.ZonaDAOPersistencia;
 import com.usac.colegio.jasperschoolbackend.persistencia.interfaces.AsignacionMaestroDAO;
 import com.usac.colegio.jasperschoolbackend.persistencia.interfaces.AsistenciaDAO;
 import com.usac.colegio.jasperschoolbackend.persistencia.interfaces.InscripcionDAO;
+import com.usac.colegio.jasperschoolbackend.persistencia.interfaces.ZonaDAO;
 import com.usac.colegio.jasperschoolbackend.seguridad.AccesoMaestro;
 import com.usac.colegio.jasperschoolbackend.seguridad.RolesPermitidos;
 import com.usac.colegio.jasperschoolbackend.transferencia.MarcaAsistencia;
@@ -24,8 +27,12 @@ import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaAlumno;
 import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaAsignacion;
 import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaAsistencia;
 import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaError;
+import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaListaZona;
+import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaZona;
 import com.usac.colegio.jasperschoolbackend.transferencia.SolicitudAsistencia;
+import com.usac.colegio.jasperschoolbackend.transferencia.SolicitudZona;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
@@ -37,6 +44,7 @@ import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -55,6 +63,7 @@ public class MaestroControlador {
     private final AsignacionMaestroDAO asignacionDAO = new AsignacionMaestroDAOPersistencia();
     private final InscripcionDAO inscripcionDAO = new InscripcionDAOPersistencia();
     private final AsistenciaDAO asistenciaDAO = new AsistenciaDAOPersistencia();
+    private final ZonaDAO zonaDAO = new ZonaDAOPersistencia();
 
     @GET
     @Path("asignaciones")
@@ -201,6 +210,89 @@ public class MaestroControlador {
                     a.getFecha().toString(), a.getPresente()));
         }
         return r;
+    }
+    
+    @GET
+    @Path("asignaciones/{id}/zona")
+    public Response listarZona(@PathParam("id") int id, @Context ContainerRequestContext contexto) {
+        try {
+            AccesoMaestro.asignacionPropia(asignacionDAO, id, idMaestro(contexto));
+            List<RespuestaZona> lista = new ArrayList<>();
+            BigDecimal total = BigDecimal.ZERO;
+            for (ActividadZona a : zonaDAO.listar(id)) {
+                lista.add(new RespuestaZona(a.getIdActividadZona(), a.getNombre(), a.getPunteo()));
+                total = total.add(a.getPunteo());
+            }
+            return Response.ok(new RespuestaListaZona(lista, total, new BigDecimal("70").subtract(total))).build();
+        } catch (ExcepcionPersistencia e) {
+            return errorDe(e, "Error interno al consultar las actividades de zona");
+        }
+    }
+
+    @POST
+    @Path("asignaciones/{id}/zona")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response crearZona(@PathParam("id") int id, SolicitudZona s, @Context ContainerRequestContext contexto) {
+        String problema = validarZona(s);
+        if (problema != null) {
+            return error(Response.Status.BAD_REQUEST, problema);
+        }
+        try {
+            AccesoMaestro.asignacionPropia(asignacionDAO, id, idMaestro(contexto));
+            ActividadZona a = zonaDAO.crear(id, s.getNombre().trim(), s.getPunteo());
+            return Response.status(Response.Status.CREATED)
+                    .entity(new RespuestaZona(a.getIdActividadZona(), a.getNombre(), a.getPunteo())).build();
+        } catch (ExcepcionPersistencia e) {
+            return errorDe(e, "Error interno al crear la actividad de zona");
+        }
+    }
+
+    @PUT
+    @Path("asignaciones/{id}/zona/{idZona}")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response editarZona(@PathParam("id") int id, @PathParam("idZona") int idZona, SolicitudZona s,
+                               @Context ContainerRequestContext contexto) {
+        String problema = validarZona(s);
+        if (problema != null) {
+            return error(Response.Status.BAD_REQUEST, problema);
+        }
+        try {
+            AccesoMaestro.asignacionPropia(asignacionDAO, id, idMaestro(contexto));
+            zonaDAO.editar(id, idZona, s.getNombre().trim(), s.getPunteo());
+            return Response.noContent().build();
+        } catch (ExcepcionPersistencia e) {
+            return errorDe(e, "Error interno al editar la actividad de zona");
+        }
+    }
+
+    @DELETE
+    @Path("asignaciones/{id}/zona/{idZona}")
+    public Response eliminarZona(@PathParam("id") int id, @PathParam("idZona") int idZona,
+                                 @Context ContainerRequestContext contexto) {
+        try {
+            AccesoMaestro.asignacionPropia(asignacionDAO, id, idMaestro(contexto));
+            zonaDAO.eliminar(id, idZona);
+            return Response.noContent().build();
+        } catch (ExcepcionPersistencia e) {
+            return errorDe(e, "Error interno al eliminar la actividad de zona");
+        }
+    }
+
+    //Nombre obligatorio (max 100) y punteo mayor que cero, hasta 70 y con maximo 2 decimales
+    private String validarZona(SolicitudZona s) {
+        if (s == null || s.getNombre() == null || s.getNombre().isBlank() || s.getPunteo() == null) {
+            return "El nombre y el punteo son obligatorios";
+        }
+        if (s.getNombre().trim().length() > 100) {
+            return "El nombre no puede pasar de 100 caracteres";
+        }
+        if (s.getPunteo().signum() <= 0 || s.getPunteo().compareTo(new BigDecimal("70")) > 0) {
+            return "El punteo debe ser mayor que cero y no pasar de 70";
+        }
+        if (s.getPunteo().scale() > 2 && s.getPunteo().stripTrailingZeros().scale() > 2) {
+            return "El punteo admite máximo 2 decimales";
+        }
+        return null;
     }
 
     //Las tres excepciones del maestro extienden ExcepcionPersistencia: se distinguen por su tipo
