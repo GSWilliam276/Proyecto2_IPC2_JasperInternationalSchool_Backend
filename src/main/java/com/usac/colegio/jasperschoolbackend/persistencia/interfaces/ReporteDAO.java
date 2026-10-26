@@ -5,6 +5,7 @@
 package com.usac.colegio.jasperschoolbackend.persistencia.interfaces;
 
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionPersistencia;
+import com.usac.colegio.jasperschoolbackend.modelo.FilaIngreso;
 import com.usac.colegio.jasperschoolbackend.modelo.FilaMora;
 import java.time.LocalDate;
 import java.util.List;
@@ -15,4 +16,7 @@ import java.util.List;
 public interface ReporteDAO {
     //CU100. desde y hasta filtran por fecha de prestamo; null = sin limite
     List<FilaMora> prestamosEnMora(LocalDate desde, LocalDate hasta) throws ExcepcionPersistencia;
+    
+    //CU099. Solo pagos vigentes, por concepto; siempre devuelve los cuatro conceptos
+    List<FilaIngreso> ingresos(LocalDate desde, LocalDate hasta) throws ExcepcionPersistencia;
 }

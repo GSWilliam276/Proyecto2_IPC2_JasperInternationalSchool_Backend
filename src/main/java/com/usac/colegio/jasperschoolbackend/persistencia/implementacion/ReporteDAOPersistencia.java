@@ -5,9 +5,11 @@
 package com.usac.colegio.jasperschoolbackend.persistencia.implementacion;
 
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionPersistencia;
+import com.usac.colegio.jasperschoolbackend.modelo.FilaIngreso;
 import com.usac.colegio.jasperschoolbackend.modelo.FilaMora;
 import com.usac.colegio.jasperschoolbackend.persistencia.interfaces.ReporteDAO;
 import com.usac.colegio.jasperschoolbackend.utilidades.ConexionBase;
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
@@ -15,7 +17,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 /**
  *
  * @author eduar
@@ -24,6 +28,7 @@ public class ReporteDAOPersistencia implements ReporteDAO {
     //Consultas de los reportes. Solo lectura
     @Override
     public List<FilaMora> prestamosEnMora(LocalDate desde, LocalDate hasta) throws ExcepcionPersistencia {
+        //Reporte de Mora
         StringBuilder sql = new StringBuilder(
                 "SELECT l.titulo, u.nombre, "
                 + "CASE WHEN e.id_usuario IS NOT NULL THEN 'Estudiante' ELSE 'Maestro' END AS tipo, "
@@ -67,5 +72,46 @@ public class ReporteDAOPersistencia implements ReporteDAO {
             throw new ExcepcionPersistencia("Error al consultar los préstamos en mora", e);
         }
         return filas;
+    }
+    
+    @Override
+    public List<FilaIngreso> ingresos(LocalDate desde, LocalDate hasta) throws ExcepcionPersistencia {
+        //Reporte de Ingresos
+        StringBuilder sql = new StringBuilder(
+                "SELECT concepto, COUNT(*) AS cantidad, SUM(monto) AS total FROM pago WHERE estado = 'VIGENTE' ");
+        List<Object> parametros = new ArrayList<>();
+        if (desde != null) {
+            sql.append("AND fecha_pago >= ? ");
+            parametros.add(Date.valueOf(desde));
+        }
+        if (hasta != null) {
+            sql.append("AND fecha_pago <= ? ");
+            parametros.add(Date.valueOf(hasta));
+        }
+        sql.append("GROUP BY concepto");
+
+        //Los cuatro conceptos aparecen siempre, aunque no tengan pagos
+        Map<String, FilaIngreso> porConcepto = new LinkedHashMap<>();
+        porConcepto.put("INSCRIPCION", new FilaIngreso("Inscripción", 0, BigDecimal.ZERO));
+        porConcepto.put("MENSUALIDAD", new FilaIngreso("Mensualidad", 0, BigDecimal.ZERO));
+        porConcepto.put("ACTIVIDAD", new FilaIngreso("Actividad", 0, BigDecimal.ZERO));
+        porConcepto.put("MULTA", new FilaIngreso("Multa", 0, BigDecimal.ZERO));
+        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+             PreparedStatement ps = con.prepareStatement(sql.toString())) {
+            for (int i = 0; i < parametros.size(); i++) {
+                ps.setObject(i + 1, parametros.get(i));
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String clave = rs.getString("concepto");
+                    FilaIngreso base = porConcepto.get(clave);
+                    porConcepto.put(clave, new FilaIngreso(base.concepto(), rs.getInt("cantidad"),
+                            rs.getBigDecimal("total")));
+                }
+            }
+        } catch (SQLException e) {
+            throw new ExcepcionPersistencia("Error al consultar los ingresos", e);
+        }
+        return new ArrayList<>(porConcepto.values());
     }
 }

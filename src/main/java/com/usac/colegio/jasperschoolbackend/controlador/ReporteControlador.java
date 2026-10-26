@@ -5,6 +5,7 @@
 package com.usac.colegio.jasperschoolbackend.controlador;
 
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionPersistencia;
+import com.usac.colegio.jasperschoolbackend.modelo.FilaIngreso;
 import com.usac.colegio.jasperschoolbackend.modelo.FilaMora;
 import com.usac.colegio.jasperschoolbackend.persistencia.implementacion.ReporteDAOPersistencia;
 import com.usac.colegio.jasperschoolbackend.persistencia.interfaces.ReporteDAO;
@@ -88,6 +89,60 @@ public class ReporteControlador {
             byte[] pdf = GeneradorReporte.pdf("prestamos_mora", parametros, filas);
             return Response.ok(pdf, "application/pdf")
                     .header("Content-Disposition", "attachment; filename=\"prestamos-en-mora.pdf\"").build();
+        } catch (DateTimeParseException e) {
+            return error(Response.Status.BAD_REQUEST, "Las fechas deben tener el formato AAAA-MM-DD");
+        } catch (ExcepcionPersistencia | JRException e) {
+            return error(Response.Status.INTERNAL_SERVER_ERROR, "Error interno al generar el PDF");
+        }
+    }
+    
+    @GET
+    @Path("ingresos")
+    @RolesPermitidos({"ADMIN", "SUPERADMIN"})
+    public Response ingresos(@QueryParam("desde") String desde, @QueryParam("hasta") String hasta) {
+        try {
+            LocalDate d = fecha(desde);
+            LocalDate h = fecha(hasta);
+            String problema = validarRango(d, h);
+            if (problema != null) {
+                return error(Response.Status.BAD_REQUEST, problema);
+            }
+            return Response.ok(reporteDAO.ingresos(d, h)).build();
+        } catch (DateTimeParseException e) {
+            return error(Response.Status.BAD_REQUEST, "Las fechas deben tener el formato AAAA-MM-DD");
+        } catch (ExcepcionPersistencia e) {
+            return error(Response.Status.INTERNAL_SERVER_ERROR, "Error interno al generar el reporte");
+        }
+    }
+
+    @GET
+    @Path("ingresos/pdf")
+    @Produces("application/pdf")
+    @RolesPermitidos({"ADMIN", "SUPERADMIN"})
+    public Response ingresosPdf(@QueryParam("desde") String desde, @QueryParam("hasta") String hasta) {
+        try {
+            LocalDate d = fecha(desde);
+            LocalDate h = fecha(hasta);
+            String problema = validarRango(d, h);
+            if (problema != null) {
+                return error(Response.Status.BAD_REQUEST, problema);
+            }
+            List<Map<String, ?>> filas = new ArrayList<>();
+            for (FilaIngreso f : reporteDAO.ingresos(d, h)) {
+                Map<String, Object> m = new HashMap<>();
+                m.put("concepto", f.concepto());
+                m.put("cantidad", f.cantidad());
+                m.put("total", f.total());
+                filas.add(m);
+            }
+            Map<String, Object> parametros = new HashMap<>();
+            parametros.put("titulo", "Reporte de ingresos");
+            parametros.put("rango", "Pagos realizados: " + rango(d, h));
+            parametros.put("generado", "Generado el "
+                    + LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")));
+            byte[] pdf = GeneradorReporte.pdf("ingresos", parametros, filas);
+            return Response.ok(pdf, "application/pdf")
+                    .header("Content-Disposition", "attachment; filename=\"ingresos.pdf\"").build();
         } catch (DateTimeParseException e) {
             return error(Response.Status.BAD_REQUEST, "Las fechas deben tener el formato AAAA-MM-DD");
         } catch (ExcepcionPersistencia | JRException e) {
