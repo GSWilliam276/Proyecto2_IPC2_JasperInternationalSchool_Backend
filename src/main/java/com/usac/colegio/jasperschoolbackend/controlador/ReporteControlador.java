@@ -4,20 +4,29 @@
  */
 package com.usac.colegio.jasperschoolbackend.controlador;
 
+import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionEstudianteNoEncontrado;
+import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionOperacionNoPermitida;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionPersistencia;
+import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionReferenciaInvalida;
 import com.usac.colegio.jasperschoolbackend.modelo.FilaIngreso;
 import com.usac.colegio.jasperschoolbackend.modelo.FilaMora;
+import com.usac.colegio.jasperschoolbackend.modelo.FilaPago;
 import com.usac.colegio.jasperschoolbackend.persistencia.implementacion.ReporteDAOPersistencia;
+import com.usac.colegio.jasperschoolbackend.persistencia.implementacion.SolvenciaDAOPersistencia;
 import com.usac.colegio.jasperschoolbackend.persistencia.interfaces.ReporteDAO;
+import com.usac.colegio.jasperschoolbackend.persistencia.interfaces.SolvenciaDAO;
 import com.usac.colegio.jasperschoolbackend.seguridad.RolesPermitidos;
 import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaError;
+import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaHistorial;
 import com.usac.colegio.jasperschoolbackend.utilidades.GeneradorReporte;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -25,6 +34,7 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import net.sf.jasperreports.engine.JRException;
 /**
@@ -37,6 +47,7 @@ import net.sf.jasperreports.engine.JRException;
 public class ReporteControlador {
     //Reportes (CU096 a CU101). Cada uno: tabla en JSON y el mismo contenido en PDF con JasperReports
     private final ReporteDAO reporteDAO = new ReporteDAOPersistencia();
+    private final SolvenciaDAO solvenciaDAO = new SolvenciaDAOPersistencia();
 
     @GET
     @Path("prestamos-mora")
@@ -143,6 +154,110 @@ public class ReporteControlador {
             byte[] pdf = GeneradorReporte.pdf("ingresos", parametros, filas);
             return Response.ok(pdf, "application/pdf")
                     .header("Content-Disposition", "attachment; filename=\"ingresos.pdf\"").build();
+        } catch (DateTimeParseException e) {
+            return error(Response.Status.BAD_REQUEST, "Las fechas deben tener el formato AAAA-MM-DD");
+        } catch (ExcepcionPersistencia | JRException e) {
+            return error(Response.Status.INTERNAL_SERVER_ERROR, "Error interno al generar el PDF");
+        }
+    }
+    
+    @GET
+    @Path("historial-pagos")
+    @RolesPermitidos({"SECRETARIA", "ADMIN", "SUPERADMIN"})
+    public Response historialPagos(@QueryParam("idEstudiante") Integer idEstudiante,
+                                   @QueryParam("desde") String desde, @QueryParam("hasta") String hasta,
+                                   @QueryParam("pagina") @DefaultValue("1") int pagina,
+                                   @QueryParam("tamano") @DefaultValue("10") int tamano) {
+        if (idEstudiante == null) {
+            return error(Response.Status.BAD_REQUEST, "El estudiante es obligatorio");
+        }
+        if (pagina < 1 || tamano < 1 || tamano > 100) {
+            return error(Response.Status.BAD_REQUEST, "La página debe ser mayor que cero y el tamaño de 1 a 100");
+        }
+        try {
+            LocalDate d = fecha(desde);
+            LocalDate h = fecha(hasta);
+            String problema = validarRango(d, h);
+            if (problema != null) {
+                return error(Response.Status.BAD_REQUEST, problema);
+            }
+            String nombre = reporteDAO.nombreEstudiante(idEstudiante);
+            if (nombre == null) {
+                return error(Response.Status.NOT_FOUND, "No existe un estudiante con ese id");
+            }
+            Object[] tot = reporteDAO.totalPagos(idEstudiante, d, h);
+            List<FilaPago> filas = reporteDAO.historialPagos(idEstudiante, d, h, pagina, tamano);
+            Boolean solvente = null;
+            BigDecimal saldo = null;
+            boolean inscPend = false;
+            List<Integer> meses = new ArrayList<>();
+            String aviso = null;
+            try {
+                var s = solvenciaDAO.consultarSaldo(idEstudiante);
+                solvente = s.isSolvente();
+                saldo = s.getMonto();
+                inscPend = s.isInscripcionPendiente();
+                meses = s.getMesesPendientes();
+            } catch (ExcepcionEstudianteNoEncontrado | ExcepcionOperacionNoPermitida
+                     | ExcepcionReferenciaInvalida e) {
+                aviso = e.getMessage();
+            }
+            return Response.ok(new RespuestaHistorial(nombre, filas, (Long) tot[0], pagina, tamano,
+                    (BigDecimal) tot[1], solvente, saldo, inscPend, meses, aviso)).build();
+        } catch (DateTimeParseException e) {
+            return error(Response.Status.BAD_REQUEST, "Las fechas deben tener el formato AAAA-MM-DD");
+        } catch (ExcepcionPersistencia e) {
+            return error(Response.Status.INTERNAL_SERVER_ERROR, "Error interno al generar el reporte");
+        }
+    }
+
+    @GET
+    @Path("historial-pagos/pdf")
+    @Produces("application/pdf")
+    @RolesPermitidos({"SECRETARIA", "ADMIN", "SUPERADMIN"})
+    public Response historialPagosPdf(@QueryParam("idEstudiante") Integer idEstudiante,
+                                      @QueryParam("desde") String desde, @QueryParam("hasta") String hasta) {
+        if (idEstudiante == null) {
+            return error(Response.Status.BAD_REQUEST, "El estudiante es obligatorio");
+        }
+        try {
+            LocalDate d = fecha(desde);
+            LocalDate h = fecha(hasta);
+            String problema = validarRango(d, h);
+            if (problema != null) {
+                return error(Response.Status.BAD_REQUEST, problema);
+            }
+            String nombre = reporteDAO.nombreEstudiante(idEstudiante);
+            if (nombre == null) {
+                return error(Response.Status.NOT_FOUND, "No existe un estudiante con ese id");
+            }
+            String textoSaldo;
+            try {
+                var s = solvenciaDAO.consultarSaldo(idEstudiante);
+                textoSaldo = s.isSolvente() ? "Saldo pendiente: ninguno (solvente)"
+                        : "Saldo pendiente: Q" + String.format(Locale.US, "%,.2f", s.getMonto());
+            } catch (ExcepcionEstudianteNoEncontrado | ExcepcionOperacionNoPermitida
+                     | ExcepcionReferenciaInvalida e) {
+                textoSaldo = "Saldo pendiente: no disponible (" + e.getMessage() + ")";
+            }
+            List<Map<String, ?>> filas = new ArrayList<>();
+            for (FilaPago f : reporteDAO.historialPagos(idEstudiante, d, h, null, null)) {
+                Map<String, Object> m = new HashMap<>();
+                m.put("fecha", f.fecha());
+                m.put("detalle", f.detalle());
+                m.put("monto", f.monto());
+                filas.add(m);
+            }
+            Map<String, Object> parametros = new HashMap<>();
+            parametros.put("titulo", "Historial de pagos");
+            parametros.put("estudiante", "Estudiante: " + nombre);
+            parametros.put("rango", "Pagos realizados: " + rango(d, h));
+            parametros.put("saldo", textoSaldo);
+            parametros.put("generado", "Generado el "
+                    + LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")));
+            byte[] pdf = GeneradorReporte.pdf("historial_pagos", parametros, filas);
+            return Response.ok(pdf, "application/pdf")
+                    .header("Content-Disposition", "attachment; filename=\"historial-de-pagos.pdf\"").build();
         } catch (DateTimeParseException e) {
             return error(Response.Status.BAD_REQUEST, "Las fechas deben tener el formato AAAA-MM-DD");
         } catch (ExcepcionPersistencia | JRException e) {

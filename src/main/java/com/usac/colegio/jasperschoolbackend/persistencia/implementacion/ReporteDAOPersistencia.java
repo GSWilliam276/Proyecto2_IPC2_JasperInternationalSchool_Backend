@@ -7,6 +7,7 @@ package com.usac.colegio.jasperschoolbackend.persistencia.implementacion;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionPersistencia;
 import com.usac.colegio.jasperschoolbackend.modelo.FilaIngreso;
 import com.usac.colegio.jasperschoolbackend.modelo.FilaMora;
+import com.usac.colegio.jasperschoolbackend.modelo.FilaPago;
 import com.usac.colegio.jasperschoolbackend.persistencia.interfaces.ReporteDAO;
 import com.usac.colegio.jasperschoolbackend.utilidades.ConexionBase;
 import java.math.BigDecimal;
@@ -25,6 +26,9 @@ import java.util.Map;
  * @author eduar
  */
 public class ReporteDAOPersistencia implements ReporteDAO {
+    
+    private static final String[] MESES = {"enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
+        "agosto", "septiembre", "octubre", "noviembre", "diciembre"};
     //Consultas de los reportes. Solo lectura
     @Override
     public List<FilaMora> prestamosEnMora(LocalDate desde, LocalDate hasta) throws ExcepcionPersistencia {
@@ -113,5 +117,94 @@ public class ReporteDAOPersistencia implements ReporteDAO {
             throw new ExcepcionPersistencia("Error al consultar los ingresos", e);
         }
         return new ArrayList<>(porConcepto.values());
+    }
+    
+    @Override
+    public String nombreEstudiante(int idEstudiante) throws ExcepcionPersistencia {
+        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+             PreparedStatement ps = con.prepareStatement(
+                     "SELECT u.nombre FROM usuario u JOIN estudiante e ON e.id_usuario = u.id_usuario WHERE u.id_usuario = ?")) {
+            ps.setInt(1, idEstudiante);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getString(1) : null;
+            }
+        } catch (SQLException e) {
+            throw new ExcepcionPersistencia("Error al buscar el estudiante", e);
+        }
+    }
+
+    @Override
+    public List<FilaPago> historialPagos(int idEstudiante, LocalDate desde, LocalDate hasta, Integer pagina,
+                                         Integer tamano) throws ExcepcionPersistencia {
+        StringBuilder sql = new StringBuilder(
+                "SELECT p.fecha_pago, p.concepto, p.mes, ac.nombre AS actividad, p.monto FROM pago p "
+                + "LEFT JOIN actividad_extracurricular ac ON ac.id_actividad = p.id_actividad "
+                + "WHERE p.id_estudiante = ? AND p.estado = 'VIGENTE' ");
+        List<Object> parametros = new ArrayList<>();
+        parametros.add(idEstudiante);
+        if (desde != null) {
+            sql.append("AND p.fecha_pago >= ? ");
+            parametros.add(Date.valueOf(desde));
+        }
+        if (hasta != null) {
+            sql.append("AND p.fecha_pago <= ? ");
+            parametros.add(Date.valueOf(hasta));
+        }
+        sql.append("ORDER BY p.fecha_pago DESC, p.id_pago DESC ");
+        if (pagina != null && tamano != null) {
+            sql.append("LIMIT ? OFFSET ?");
+            parametros.add(tamano);
+            parametros.add((pagina - 1) * tamano);
+        }
+        List<FilaPago> filas = new ArrayList<>();
+        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+             PreparedStatement ps = con.prepareStatement(sql.toString())) {
+            for (int i = 0; i < parametros.size(); i++) {
+                ps.setObject(i + 1, parametros.get(i));
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String detalle;
+                    switch (rs.getString("concepto")) {
+                        case "INSCRIPCION" -> detalle = "Inscripción";
+                        case "MENSUALIDAD" -> detalle = "Mensualidad de " + MESES[rs.getInt("mes") - 1];
+                        case "ACTIVIDAD" -> detalle = "Actividad: " + rs.getString("actividad");
+                        default -> detalle = "Multa de biblioteca";
+                    }
+                    filas.add(new FilaPago(rs.getDate("fecha_pago").toString(), detalle, rs.getBigDecimal("monto")));
+                }
+            }
+        } catch (SQLException e) {
+            throw new ExcepcionPersistencia("Error al consultar el historial de pagos", e);
+        }
+        return filas;
+    }
+
+    @Override
+    public Object[] totalPagos(int idEstudiante, LocalDate desde, LocalDate hasta) throws ExcepcionPersistencia {
+        StringBuilder sql = new StringBuilder(
+                "SELECT COUNT(*), COALESCE(SUM(monto), 0) FROM pago WHERE id_estudiante = ? AND estado = 'VIGENTE' ");
+        List<Object> parametros = new ArrayList<>();
+        parametros.add(idEstudiante);
+        if (desde != null) {
+            sql.append("AND fecha_pago >= ? ");
+            parametros.add(Date.valueOf(desde));
+        }
+        if (hasta != null) {
+            sql.append("AND fecha_pago <= ? ");
+            parametros.add(Date.valueOf(hasta));
+        }
+        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+             PreparedStatement ps = con.prepareStatement(sql.toString())) {
+            for (int i = 0; i < parametros.size(); i++) {
+                ps.setObject(i + 1, parametros.get(i));
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return new Object[] {rs.getLong(1), rs.getBigDecimal(2)};
+            }
+        } catch (SQLException e) {
+            throw new ExcepcionPersistencia("Error al totalizar los pagos", e);
+        }
     }
 }
