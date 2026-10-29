@@ -8,6 +8,7 @@ import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionPersistencia;
 import com.usac.colegio.jasperschoolbackend.modelo.FilaIngreso;
 import com.usac.colegio.jasperschoolbackend.modelo.FilaMora;
 import com.usac.colegio.jasperschoolbackend.modelo.FilaPago;
+import com.usac.colegio.jasperschoolbackend.modelo.Inscrito;
 import com.usac.colegio.jasperschoolbackend.persistencia.interfaces.ReporteDAO;
 import com.usac.colegio.jasperschoolbackend.utilidades.ConexionBase;
 import java.math.BigDecimal;
@@ -119,6 +120,7 @@ public class ReporteDAOPersistencia implements ReporteDAO {
         return new ArrayList<>(porConcepto.values());
     }
     
+    //Reporte Historial de Pagos
     @Override
     public String nombreEstudiante(int idEstudiante) throws ExcepcionPersistencia {
         try (Connection con = ConexionBase.obtenerInstancia().getConexion();
@@ -205,6 +207,92 @@ public class ReporteDAOPersistencia implements ReporteDAO {
             }
         } catch (SQLException e) {
             throw new ExcepcionPersistencia("Error al totalizar los pagos", e);
+        }
+    }
+    
+    //Reporte Solventes y Morosos
+    @Override
+    public String[] anio(Integer idAnio) throws ExcepcionPersistencia {
+        String sql = idAnio == null
+                ? "SELECT id_anio_lectivo, nombre, estado FROM anio_lectivo WHERE estado = 'ACTIVO' LIMIT 1"
+                : "SELECT id_anio_lectivo, nombre, estado FROM anio_lectivo WHERE id_anio_lectivo = ?";
+        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            if (idAnio != null) {
+                ps.setInt(1, idAnio);
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? new String[] {String.valueOf(rs.getInt(1)), rs.getString(2), rs.getString(3)} : null;
+            }
+        } catch (SQLException e) {
+            throw new ExcepcionPersistencia("Error al buscar el año lectivo", e);
+        }
+    }
+
+    private String filtroInscritos(Integer idGrado, Integer idSeccion, List<Object> parametros) {
+        StringBuilder where = new StringBuilder("WHERE i.id_anio_lectivo = ? AND i.estado = 'ACTIVA' ");
+        if (idGrado != null) {
+            where.append("AND s.id_grado = ? ");
+            parametros.add(idGrado);
+        }
+        if (idSeccion != null) {
+            where.append("AND s.id_seccion = ? ");
+            parametros.add(idSeccion);
+        }
+        return where.toString();
+    }
+
+    @Override
+    public List<Inscrito> inscritos(int idAnio, Integer idGrado, Integer idSeccion, Integer pagina, Integer tamano)
+            throws ExcepcionPersistencia {
+        List<Object> parametros = new ArrayList<>();
+        parametros.add(idAnio);
+        StringBuilder sql = new StringBuilder(
+                "SELECT u.id_usuario, u.nombre, u.cui, g.nombre AS grado, s.nombre AS seccion "
+                + "FROM inscripcion i JOIN seccion s ON s.id_seccion = i.id_seccion "
+                + "JOIN grado g ON g.id_grado = s.id_grado JOIN usuario u ON u.id_usuario = i.id_estudiante ");
+        sql.append(filtroInscritos(idGrado, idSeccion, parametros));
+        sql.append("ORDER BY g.nombre, s.nombre, u.nombre, u.id_usuario ");
+        if (pagina != null && tamano != null) {
+            sql.append("LIMIT ? OFFSET ?");
+            parametros.add(tamano);
+            parametros.add((pagina - 1) * tamano);
+        }
+        List<Inscrito> lista = new ArrayList<>();
+        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+             PreparedStatement ps = con.prepareStatement(sql.toString())) {
+            for (int i = 0; i < parametros.size(); i++) {
+                ps.setObject(i + 1, parametros.get(i));
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    lista.add(new Inscrito(rs.getInt("id_usuario"), rs.getString("nombre"), rs.getString("cui"),
+                            rs.getString("grado"), rs.getString("seccion")));
+                }
+            }
+        } catch (SQLException e) {
+            throw new ExcepcionPersistencia("Error al listar los inscritos", e);
+        }
+        return lista;
+    }
+
+    @Override
+    public long contarInscritos(int idAnio, Integer idGrado, Integer idSeccion) throws ExcepcionPersistencia {
+        List<Object> parametros = new ArrayList<>();
+        parametros.add(idAnio);
+        String sql = "SELECT COUNT(*) FROM inscripcion i JOIN seccion s ON s.id_seccion = i.id_seccion "
+                + filtroInscritos(idGrado, idSeccion, parametros);
+        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            for (int i = 0; i < parametros.size(); i++) {
+                ps.setObject(i + 1, parametros.get(i));
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getLong(1);
+            }
+        } catch (SQLException e) {
+            throw new ExcepcionPersistencia("Error al contar los inscritos", e);
         }
     }
 }

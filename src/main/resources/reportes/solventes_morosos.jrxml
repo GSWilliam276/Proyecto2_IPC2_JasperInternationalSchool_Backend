@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd"
+              name="solventes_morosos" pageWidth="595" pageHeight="842"
+              columnWidth="535" leftMargin="30" rightMargin="30" topMargin="30" bottomMargin="30"
+              whenNoDataType="AllSectionsNoDetail">
+
+    <style name="base" isDefault="true" fontName="SansSerif" fontSize="9" pdfFontName="Helvetica" pdfEncoding="Cp1252"/>
+
+    <parameter name="titulo" class="java.lang.String"/>
+    <parameter name="anio" class="java.lang.String"/>
+    <parameter name="filtros" class="java.lang.String"/>
+    <parameter name="generado" class="java.lang.String"/>
+
+    <field name="estudiante" class="java.lang.String"/>
+    <field name="ubicacion" class="java.lang.String"/>
+    <field name="estado" class="java.lang.String"/>
+    <field name="monto" class="java.math.BigDecimal"/>
+
+    <variable name="ADEUDADO" class="java.math.BigDecimal" calculation="Sum">
+        <variableExpression><![CDATA[$F{monto}]]></variableExpression>
+    </variable>
+
+    <title>
+        <band height="78">
+            <textField><reportElement x="0" y="0" width="535" height="26" forecolor="#1F4A42"/>
+                <textElement><font size="18" isBold="true"/></textElement>
+                <textFieldExpression><![CDATA[$P{titulo}]]></textFieldExpression></textField>
+            <textField><reportElement x="0" y="28" width="535" height="14"/>
+                <textElement><font isBold="true"/></textElement>
+                <textFieldExpression><![CDATA[$P{anio}]]></textFieldExpression></textField>
+            <textField isStretchWithOverflow="true"><reportElement x="0" y="43" width="535" height="14"/>
+                <textFieldExpression><![CDATA[$P{filtros}]]></textFieldExpression></textField>
+            <textField><reportElement x="0" y="60" width="535" height="14" forecolor="#666666"/>
+                <textFieldExpression><![CDATA[$P{generado}]]></textFieldExpression></textField>
+        </band>
+    </title>
+
+    <columnHeader>
+        <band height="22">
+            <staticText><reportElement mode="Opaque" x="0" y="0" width="190" height="22" forecolor="#FFFFFF" backcolor="#2F6F62"/>
+                <textElement verticalAlignment="Middle"><font isBold="true"/></textElement><text><![CDATA[ Estudiante]]></text></staticText>
+            <staticText><reportElement mode="Opaque" x="190" y="0" width="170" height="22" forecolor="#FFFFFF" backcolor="#2F6F62"/>
+                <textElement verticalAlignment="Middle"><font isBold="true"/></textElement><text><![CDATA[ Grado y sección]]></text></staticText>
+            <staticText><reportElement mode="Opaque" x="360" y="0" width="80" height="22" forecolor="#FFFFFF" backcolor="#2F6F62"/>
+                <textElement verticalAlignment="Middle"><font isBold="true"/></textElement><text><![CDATA[ Estado]]></text></staticText>
+            <staticText><reportElement mode="Opaque" x="440" y="0" width="95" height="22" forecolor="#FFFFFF" backcolor="#2F6F62"/>
+                <textElement textAlignment="Right" verticalAlignment="Middle"><font isBold="true"/></textElement><text><![CDATA[Adeudado ]]></text></staticText>
+        </band>
+    </columnHeader>
+
+    <detail>
+        <band height="20">
+            <textField isStretchWithOverflow="true"><reportElement x="0" y="0" width="190" height="20"/>
+                <textElement verticalAlignment="Middle"/><textFieldExpression><![CDATA[" " + $F{estudiante}]]></textFieldExpression></textField>
+            <textField isStretchWithOverflow="true"><reportElement x="190" y="0" width="170" height="20"/>
+                <textElement verticalAlignment="Middle"/><textFieldExpression><![CDATA[" " + $F{ubicacion}]]></textFieldExpression></textField>
+            <textField><reportElement x="360" y="0" width="80" height="20"/>
+                <textElement verticalAlignment="Middle"/><textFieldExpression><![CDATA[" " + $F{estado}]]></textFieldExpression></textField>
+            <textField><reportElement x="440" y="0" width="95" height="20"/>
+                <textElement textAlignment="Right" verticalAlignment="Middle"/>
+                <textFieldExpression><![CDATA[$F{monto} == null ? "- " : new java.text.DecimalFormat("'Q'#,##0.00").format($F{monto}) + " "]]></textFieldExpression></textField>
+            <line><reportElement x="0" y="19" width="535" height="1" forecolor="#DDDDDD"/></line>
+        </band>
+    </detail>
+
+    <pageFooter>
+        <band height="20">
+            <textField><reportElement x="335" y="4" width="200" height="14" forecolor="#666666"/>
+                <textElement textAlignment="Right"/>
+                <textFieldExpression><![CDATA["Página " + $V{PAGE_NUMBER}]]></textFieldExpression></textField>
+        </band>
+    </pageFooter>
+
+    <summary>
+        <band height="34">
+            <staticText><reportElement x="190" y="8" width="250" height="20"/>
+                <textElement textAlignment="Right" verticalAlignment="Middle"><font isBold="true"/></textElement>
+                <text><![CDATA[Total adeudado:]]></text></staticText>
+            <textField><reportElement x="440" y="8" width="95" height="20" forecolor="#1F4A42"/>
+                <textElement textAlignment="Right" verticalAlignment="Middle"><font isBold="true"/></textElement>
+                <textFieldExpression><![CDATA[new java.text.DecimalFormat("'Q'#,##0.00").format($V{ADEUDADO} == null ? java.math.BigDecimal.ZERO : $V{ADEUDADO}) + " "]]></textFieldExpression></textField>
+        </band>
+    </summary>
+</jasperReport>

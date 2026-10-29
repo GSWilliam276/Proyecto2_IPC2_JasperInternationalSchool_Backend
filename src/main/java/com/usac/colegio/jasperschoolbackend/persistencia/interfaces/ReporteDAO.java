@@ -8,6 +8,7 @@ import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionPersistencia;
 import com.usac.colegio.jasperschoolbackend.modelo.FilaIngreso;
 import com.usac.colegio.jasperschoolbackend.modelo.FilaMora;
 import com.usac.colegio.jasperschoolbackend.modelo.FilaPago;
+import com.usac.colegio.jasperschoolbackend.modelo.Inscrito;
 import java.time.LocalDate;
 import java.util.List;
 /**
@@ -30,4 +31,13 @@ public interface ReporteDAO {
 
     //{cantidad, monto} de los pagos que cumplen el filtro
     Object[] totalPagos(int idEstudiante, LocalDate desde, LocalDate hasta) throws ExcepcionPersistencia;
+    
+    // {id, nombre, estado} del año indicado, o del activo si idAnio es null. null si no existe
+    String[] anio(Integer idAnio) throws ExcepcionPersistencia;
+
+    //CU096. Inscripciones ACTIVAS del año. pagina/tamano null = todos (PDF)
+    List<Inscrito> inscritos(int idAnio, Integer idGrado, Integer idSeccion, Integer pagina, Integer tamano)
+            throws ExcepcionPersistencia;
+
+    long contarInscritos(int idAnio, Integer idGrado, Integer idSeccion) throws ExcepcionPersistencia;
 }
