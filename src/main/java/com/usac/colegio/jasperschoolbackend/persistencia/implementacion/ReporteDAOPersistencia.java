@@ -9,6 +9,7 @@ import com.usac.colegio.jasperschoolbackend.modelo.FilaIngreso;
 import com.usac.colegio.jasperschoolbackend.modelo.FilaMora;
 import com.usac.colegio.jasperschoolbackend.modelo.FilaPago;
 import com.usac.colegio.jasperschoolbackend.modelo.Inscrito;
+import com.usac.colegio.jasperschoolbackend.modelo.NotaTotal;
 import com.usac.colegio.jasperschoolbackend.persistencia.interfaces.ReporteDAO;
 import com.usac.colegio.jasperschoolbackend.utilidades.ConexionBase;
 import java.math.BigDecimal;
@@ -294,5 +295,52 @@ public class ReporteDAOPersistencia implements ReporteDAO {
         } catch (SQLException e) {
             throw new ExcepcionPersistencia("Error al contar los inscritos", e);
         }
+    }
+    
+    //Reporte de Rendimiento
+    @Override
+    public String[] seccion(int idSeccion) throws ExcepcionPersistencia {
+        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+             PreparedStatement ps = con.prepareStatement(
+                     "SELECT g.nombre, s.nombre, a.nombre FROM seccion s JOIN grado g ON g.id_grado = s.id_grado "
+                     + "JOIN anio_lectivo a ON a.id_anio_lectivo = s.id_anio_lectivo WHERE s.id_seccion = ?")) {
+            ps.setInt(1, idSeccion);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? new String[] {rs.getString(1) + " · " + rs.getString(2), rs.getString(3)} : null;
+            }
+        } catch (SQLException e) {
+            throw new ExcepcionPersistencia("Error al buscar la sección", e);
+        }
+    }
+
+    @Override
+    public List<NotaTotal> totalesPorCurso(int idSeccion) throws ExcepcionPersistencia {
+        String sql = "SELECT t.id_estudiante, t.estudiante, t.curso, t.total FROM ("
+                + "SELECT i.id_estudiante, u.nombre AS estudiante, c.nombre AS curso, "
+                + "COALESCE((SELECT SUM(n.valor) FROM nota n JOIN actividad_zona z ON z.id_actividad_zona = n.id_actividad_zona "
+                + "WHERE z.id_asignacion = am.id_asignacion AND n.id_estudiante = i.id_estudiante), 0) "
+                + "+ COALESCE((SELECT nf.valor FROM nota_final nf WHERE nf.id_asignacion = am.id_asignacion "
+                + "AND nf.id_estudiante = i.id_estudiante), 0) AS total, "
+                + "(EXISTS (SELECT 1 FROM nota n JOIN actividad_zona z ON z.id_actividad_zona = n.id_actividad_zona "
+                + "WHERE z.id_asignacion = am.id_asignacion AND n.id_estudiante = i.id_estudiante) "
+                + "OR EXISTS (SELECT 1 FROM nota_final nf WHERE nf.id_asignacion = am.id_asignacion "
+                + "AND nf.id_estudiante = i.id_estudiante)) AS tiene "
+                + "FROM asignacion_maestro am JOIN curso c ON c.id_curso = am.id_curso "
+                + "JOIN inscripcion i ON i.id_seccion = am.id_seccion AND i.estado = 'ACTIVA' "
+                + "JOIN usuario u ON u.id_usuario = i.id_estudiante WHERE am.id_seccion = ?) t "
+                + "WHERE t.tiene = 1 ORDER BY t.curso, t.estudiante";
+        List<NotaTotal> lista = new ArrayList<>();
+        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, idSeccion);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    lista.add(new NotaTotal(rs.getInt(1), rs.getString(2), rs.getString(3), rs.getBigDecimal(4)));
+                }
+            }
+        } catch (SQLException e) {
+            throw new ExcepcionPersistencia("Error al consultar el rendimiento", e);
+        }
+        return lista;
     }
 }

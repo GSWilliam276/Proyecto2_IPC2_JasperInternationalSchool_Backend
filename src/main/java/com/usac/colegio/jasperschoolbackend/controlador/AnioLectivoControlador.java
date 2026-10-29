@@ -39,7 +39,7 @@ import java.util.Optional;
  */
 @Path("anios-lectivos")
 @Produces(MediaType.APPLICATION_JSON)
-@RolesPermitidos({"SUPERADMIN"})
+@RolesPermitidos({"ADMIN", "SUPERADMIN", "SECRETARIA"})
 public class AnioLectivoControlador {
     private final AnioLectivoDAO anioDAO = new AnioLectivoDAOPersistencia();
 

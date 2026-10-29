@@ -9,6 +9,7 @@ import com.usac.colegio.jasperschoolbackend.modelo.FilaIngreso;
 import com.usac.colegio.jasperschoolbackend.modelo.FilaMora;
 import com.usac.colegio.jasperschoolbackend.modelo.FilaPago;
 import com.usac.colegio.jasperschoolbackend.modelo.Inscrito;
+import com.usac.colegio.jasperschoolbackend.modelo.NotaTotal;
 import java.time.LocalDate;
 import java.util.List;
 /**
@@ -40,4 +41,10 @@ public interface ReporteDAO {
             throws ExcepcionPersistencia;
 
     long contarInscritos(int idAnio, Integer idGrado, Integer idSeccion) throws ExcepcionPersistencia;
+    
+    //{descripcion "Grado · Seccion", nombre del año}, o null si no existe
+    String[] seccion(int idSeccion) throws ExcepcionPersistencia;
+
+    //CU097. Total por estudiante y curso de la seccion, solo de quienes tienen alguna nota
+    List<NotaTotal> totalesPorCurso(int idSeccion) throws ExcepcionPersistencia;
 }

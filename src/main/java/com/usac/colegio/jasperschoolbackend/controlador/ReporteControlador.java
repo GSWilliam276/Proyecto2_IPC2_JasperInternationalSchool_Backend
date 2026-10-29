@@ -8,11 +8,14 @@ import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionEstudianteNoEnc
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionOperacionNoPermitida;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionPersistencia;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionReferenciaInvalida;
+import com.usac.colegio.jasperschoolbackend.modelo.FilaCurso;
 import com.usac.colegio.jasperschoolbackend.modelo.FilaIngreso;
+import com.usac.colegio.jasperschoolbackend.modelo.FilaMejor;
 import com.usac.colegio.jasperschoolbackend.modelo.FilaMora;
 import com.usac.colegio.jasperschoolbackend.modelo.FilaPago;
 import com.usac.colegio.jasperschoolbackend.modelo.FilaSolvencia;
 import com.usac.colegio.jasperschoolbackend.modelo.Inscrito;
+import com.usac.colegio.jasperschoolbackend.modelo.NotaTotal;
 import com.usac.colegio.jasperschoolbackend.persistencia.implementacion.ReporteDAOPersistencia;
 import com.usac.colegio.jasperschoolbackend.persistencia.implementacion.SolvenciaDAOPersistencia;
 import com.usac.colegio.jasperschoolbackend.persistencia.interfaces.ReporteDAO;
@@ -20,6 +23,7 @@ import com.usac.colegio.jasperschoolbackend.persistencia.interfaces.SolvenciaDAO
 import com.usac.colegio.jasperschoolbackend.seguridad.RolesPermitidos;
 import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaError;
 import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaHistorial;
+import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaRendimiento;
 import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaSolventes;
 import com.usac.colegio.jasperschoolbackend.utilidades.GeneradorReporte;
 import jakarta.ws.rs.DefaultValue;
@@ -30,12 +34,15 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -347,6 +354,109 @@ public class ReporteControlador {
             byte[] pdf = GeneradorReporte.pdf("solventes_morosos", parametros, filas);
             return Response.ok(pdf, "application/pdf")
                     .header("Content-Disposition", "attachment; filename=\"solventes-y-morosos.pdf\"").build();
+        } catch (ExcepcionPersistencia | JRException e) {
+            return error(Response.Status.INTERNAL_SERVER_ERROR, "Error interno al generar el PDF");
+        }
+    }
+    
+    //Promedios por curso (con los 3 mas bajos marcados) y top 10 de estudiantes
+    private Object[] calcularRendimiento(List<NotaTotal> totales) {
+        Map<String, BigDecimal> sumaCurso = new LinkedHashMap<>();
+        Map<String, Integer> cuentaCurso = new LinkedHashMap<>();
+        Map<Integer, BigDecimal> sumaEst = new LinkedHashMap<>();
+        Map<Integer, Integer> cuentaEst = new LinkedHashMap<>();
+        Map<Integer, String> nombres = new LinkedHashMap<>();
+        for (NotaTotal t : totales) {
+            sumaCurso.merge(t.curso(), t.total(), BigDecimal::add);
+            cuentaCurso.merge(t.curso(), 1, Integer::sum);
+            sumaEst.merge(t.idEstudiante(), t.total(), BigDecimal::add);
+            cuentaEst.merge(t.idEstudiante(), 1, Integer::sum);
+            nombres.put(t.idEstudiante(), t.estudiante());
+        }
+        List<FilaCurso> cursos = new ArrayList<>();
+        for (String c : sumaCurso.keySet()) {
+            int n = cuentaCurso.get(c);
+            cursos.add(new FilaCurso(c, n, sumaCurso.get(c).divide(BigDecimal.valueOf(n), 2, RoundingMode.HALF_UP), false));
+        }
+        cursos.sort(Comparator.comparing(FilaCurso::promedio));
+        List<FilaCurso> marcados = new ArrayList<>();
+        for (int i = 0; i < cursos.size(); i++) {
+            FilaCurso f = cursos.get(i);
+            marcados.add(new FilaCurso(f.curso(), f.estudiantes(), f.promedio(), cursos.size() > 1 && i < 3));
+        }
+        List<Map.Entry<Integer, BigDecimal>> orden = new ArrayList<>();
+        for (Integer id : sumaEst.keySet()) {
+            orden.add(Map.entry(id, sumaEst.get(id).divide(BigDecimal.valueOf(cuentaEst.get(id)), 2, RoundingMode.HALF_UP)));
+        }
+        orden.sort((a, b) -> b.getValue().compareTo(a.getValue()));
+        List<FilaMejor> mejores = new ArrayList<>();
+        for (int i = 0; i < Math.min(10, orden.size()); i++) {
+            int id = orden.get(i).getKey();
+            mejores.add(new FilaMejor(i + 1, nombres.get(id), cuentaEst.get(id), orden.get(i).getValue()));
+        }
+        return new Object[] {marcados, mejores};
+    }
+
+    @SuppressWarnings("unchecked")
+    @GET
+    @Path("rendimiento")
+    @RolesPermitidos({"SECRETARIA", "ADMIN", "SUPERADMIN"})
+    public Response rendimiento(@QueryParam("idSeccion") Integer idSeccion) {
+        if (idSeccion == null) {
+            return error(Response.Status.BAD_REQUEST, "La sección es obligatoria");
+        }
+        try {
+            String[] s = reporteDAO.seccion(idSeccion);
+            if (s == null) {
+                return error(Response.Status.NOT_FOUND, "No existe una sección con ese id");
+            }
+            Object[] r = calcularRendimiento(reporteDAO.totalesPorCurso(idSeccion));
+            return Response.ok(new RespuestaRendimiento(s[0], s[1], (List<FilaCurso>) r[0], (List<FilaMejor>) r[1])).build();
+        } catch (ExcepcionPersistencia e) {
+            return error(Response.Status.INTERNAL_SERVER_ERROR, "Error interno al generar el reporte");
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    @GET
+    @Path("rendimiento/pdf")
+    @Produces("application/pdf")
+    @RolesPermitidos({"SECRETARIA", "ADMIN", "SUPERADMIN"})
+    public Response rendimientoPdf(@QueryParam("idSeccion") Integer idSeccion) {
+        if (idSeccion == null) {
+            return error(Response.Status.BAD_REQUEST, "La sección es obligatoria");
+        }
+        try {
+            String[] s = reporteDAO.seccion(idSeccion);
+            if (s == null) {
+                return error(Response.Status.NOT_FOUND, "No existe una sección con ese id");
+            }
+            Object[] r = calcularRendimiento(reporteDAO.totalesPorCurso(idSeccion));
+            List<Map<String, ?>> filas = new ArrayList<>();
+            for (FilaCurso c : (List<FilaCurso>) r[0]) {
+                Map<String, Object> m = new HashMap<>();
+                m.put("bloque", "Promedio por curso (de menor a mayor)");
+                m.put("nombre", c.curso());
+                m.put("detalle", c.estudiantes() + " estudiante(s)" + (c.dificil() ? " · mayor dificultad" : ""));
+                m.put("promedio", c.promedio());
+                filas.add(m);
+            }
+            for (FilaMejor f : (List<FilaMejor>) r[1]) {
+                Map<String, Object> m = new HashMap<>();
+                m.put("bloque", "Mejores promedios");
+                m.put("nombre", f.puesto() + ". " + f.estudiante());
+                m.put("detalle", f.cursos() + " curso(s)");
+                m.put("promedio", f.promedio());
+                filas.add(m);
+            }
+            Map<String, Object> parametros = new HashMap<>();
+            parametros.put("titulo", "Rendimiento académico");
+            parametros.put("seccion", s[0] + " · " + s[1]);
+            parametros.put("generado", "Generado el "
+                    + LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")));
+            byte[] pdf = GeneradorReporte.pdf("rendimiento", parametros, filas);
+            return Response.ok(pdf, "application/pdf")
+                    .header("Content-Disposition", "attachment; filename=\"rendimiento.pdf\"").build();
         } catch (ExcepcionPersistencia | JRException e) {
             return error(Response.Status.INTERNAL_SERVER_ERROR, "Error interno al generar el PDF");
         }
