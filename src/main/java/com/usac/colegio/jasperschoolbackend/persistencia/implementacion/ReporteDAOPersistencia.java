@@ -33,7 +33,8 @@ public class ReporteDAOPersistencia implements ReporteDAO {
         "agosto", "septiembre", "octubre", "noviembre", "diciembre"};
     //Consultas de los reportes. Solo lectura
     @Override
-    public List<FilaMora> prestamosEnMora(LocalDate desde, LocalDate hasta) throws ExcepcionPersistencia {
+    public List<FilaMora> prestamosEnMora(LocalDate desde, LocalDate hasta, Integer pagina, Integer tamano)
+            throws ExcepcionPersistencia {
         //Reporte de Mora
         StringBuilder sql = new StringBuilder(
                 "SELECT l.titulo, u.nombre, "
@@ -59,7 +60,12 @@ public class ReporteDAOPersistencia implements ReporteDAO {
             sql.append("AND p.fecha_prestamo <= ? ");
             parametros.add(Date.valueOf(hasta));
         }
-        sql.append("ORDER BY dias DESC, u.nombre, p.id_prestamo");
+        sql.append("ORDER BY dias DESC, u.nombre, p.id_prestamo ");
+        if (pagina != null && tamano != null) {
+            sql.append("LIMIT ? OFFSET ?");
+            parametros.add(tamano);
+            parametros.add((pagina - 1) * tamano);
+        }
 
         List<FilaMora> filas = new ArrayList<>();
         try (Connection con = ConexionBase.obtenerInstancia().getConexion();
@@ -78,6 +84,40 @@ public class ReporteDAOPersistencia implements ReporteDAO {
             throw new ExcepcionPersistencia("Error al consultar los préstamos en mora", e);
         }
         return filas;
+    }
+    
+    @Override
+    public Object[] totalesMora(LocalDate desde, LocalDate hasta) throws ExcepcionPersistencia {
+        StringBuilder sql = new StringBuilder(
+                "SELECT COUNT(*), COALESCE(SUM(CASE WHEN e.id_usuario IS NOT NULL "
+                + "THEN DATEDIFF(?, p.fecha_esperada) * pb.multa_por_dia ELSE 0 END), 0) "
+                + "FROM prestamo p LEFT JOIN estudiante e ON e.id_usuario = p.id_prestatario "
+                + "JOIN parametros_biblioteca pb ON pb.id_parametros = 1 "
+                + "WHERE p.fecha_devolucion IS NULL AND p.fecha_esperada < ? ");
+        Date hoy = Date.valueOf(LocalDate.now());
+        List<Object> parametros = new ArrayList<>();
+        parametros.add(hoy);
+        parametros.add(hoy);
+        if (desde != null) {
+            sql.append("AND p.fecha_prestamo >= ? ");
+            parametros.add(Date.valueOf(desde));
+        }
+        if (hasta != null) {
+            sql.append("AND p.fecha_prestamo <= ? ");
+            parametros.add(Date.valueOf(hasta));
+        }
+        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+             PreparedStatement ps = con.prepareStatement(sql.toString())) {
+            for (int i = 0; i < parametros.size(); i++) {
+                ps.setObject(i + 1, parametros.get(i));
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return new Object[] {rs.getLong(1), rs.getBigDecimal(2)};
+            }
+        } catch (SQLException e) {
+            throw new ExcepcionPersistencia("Error al totalizar los préstamos en mora", e);
+        }
     }
     
     @Override

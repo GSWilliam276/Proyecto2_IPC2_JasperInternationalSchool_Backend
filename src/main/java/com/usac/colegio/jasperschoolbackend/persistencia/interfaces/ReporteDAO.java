@@ -18,7 +18,11 @@ import java.util.List;
  */
 public interface ReporteDAO {
     //CU100. desde y hasta filtran por fecha de prestamo; null = sin limite
-    List<FilaMora> prestamosEnMora(LocalDate desde, LocalDate hasta) throws ExcepcionPersistencia;
+    List<FilaMora> prestamosEnMora(LocalDate desde, LocalDate hasta, Integer pagina, Integer tamano)
+            throws ExcepcionPersistencia;
+    
+    // {cantidad, recargo total} de todos los prestamos en mora del filtro, sin paginar
+    Object[] totalesMora(LocalDate desde, LocalDate hasta) throws ExcepcionPersistencia;
     
     //CU099. Solo pagos vigentes, por concepto; siempre devuelve los cuatro conceptos
     List<FilaIngreso> ingresos(LocalDate desde, LocalDate hasta) throws ExcepcionPersistencia;

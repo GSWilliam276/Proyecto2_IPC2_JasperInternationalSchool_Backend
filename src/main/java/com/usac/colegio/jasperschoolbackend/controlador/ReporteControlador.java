@@ -23,6 +23,7 @@ import com.usac.colegio.jasperschoolbackend.persistencia.interfaces.SolvenciaDAO
 import com.usac.colegio.jasperschoolbackend.seguridad.RolesPermitidos;
 import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaError;
 import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaHistorial;
+import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaMora;
 import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaRendimiento;
 import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaSolventes;
 import com.usac.colegio.jasperschoolbackend.utilidades.GeneradorReporte;
@@ -59,10 +60,16 @@ public class ReporteControlador {
     private final ReporteDAO reporteDAO = new ReporteDAOPersistencia();
     private final SolvenciaDAO solvenciaDAO = new SolvenciaDAOPersistencia();
 
+    //Mora y PDF
     @GET
     @Path("prestamos-mora")
-    @RolesPermitidos({"BIBLIOTECARIO"})
-    public Response prestamosMora(@QueryParam("desde") String desde, @QueryParam("hasta") String hasta) {
+    @RolesPermitidos({"BIBLIOTECARIO", "ADMIN", "SUPERADMIN"})
+    public Response prestamosMora(@QueryParam("desde") String desde, @QueryParam("hasta") String hasta,
+                                  @QueryParam("pagina") @DefaultValue("1") int pagina,
+                                  @QueryParam("tamano") @DefaultValue("10") int tamano) {
+        if (pagina < 1 || tamano < 1 || tamano > 100) {
+            return error(Response.Status.BAD_REQUEST, "La página debe ser mayor que cero y el tamaño de 1 a 100");
+        }
         try {
             LocalDate d = fecha(desde);
             LocalDate h = fecha(hasta);
@@ -70,7 +77,9 @@ public class ReporteControlador {
             if (problema != null) {
                 return error(Response.Status.BAD_REQUEST, problema);
             }
-            return Response.ok(reporteDAO.prestamosEnMora(d, h)).build();
+            Object[] tot = reporteDAO.totalesMora(d, h);
+            return Response.ok(new RespuestaMora(reporteDAO.prestamosEnMora(d, h, pagina, tamano),
+                    (Long) tot[0], pagina, tamano, (BigDecimal) tot[1])).build();
         } catch (DateTimeParseException e) {
             return error(Response.Status.BAD_REQUEST, "Las fechas deben tener el formato AAAA-MM-DD");
         } catch (ExcepcionPersistencia e) {
@@ -81,7 +90,7 @@ public class ReporteControlador {
     @GET
     @Path("prestamos-mora/pdf")
     @Produces("application/pdf")
-    @RolesPermitidos({"BIBLIOTECARIO"})
+    @RolesPermitidos({"BIBLIOTECARIO", "ADMIN", "SUPERADMIN"})
     public Response prestamosMoraPdf(@QueryParam("desde") String desde, @QueryParam("hasta") String hasta) {
         try {
             LocalDate d = fecha(desde);
@@ -91,7 +100,7 @@ public class ReporteControlador {
                 return error(Response.Status.BAD_REQUEST, problema);
             }
             List<Map<String, ?>> filas = new ArrayList<>();
-            for (FilaMora f : reporteDAO.prestamosEnMora(d, h)) {
+            for (FilaMora f : reporteDAO.prestamosEnMora(d, h, null, null)) {
                 Map<String, Object> m = new HashMap<>();
                 m.put("libro", f.libro());
                 m.put("prestatario", f.prestatario());
@@ -117,9 +126,10 @@ public class ReporteControlador {
         }
     }
     
+    //Ingresos y su PDF
     @GET
     @Path("ingresos")
-    @RolesPermitidos({"ADMIN", "SUPERADMIN"})
+    @RolesPermitidos({"SUPERADMIN"})
     public Response ingresos(@QueryParam("desde") String desde, @QueryParam("hasta") String hasta) {
         try {
             LocalDate d = fecha(desde);
@@ -139,7 +149,7 @@ public class ReporteControlador {
     @GET
     @Path("ingresos/pdf")
     @Produces("application/pdf")
-    @RolesPermitidos({"ADMIN", "SUPERADMIN"})
+    @RolesPermitidos({"SUPERADMIN"})
     public Response ingresosPdf(@QueryParam("desde") String desde, @QueryParam("hasta") String hasta) {
         try {
             LocalDate d = fecha(desde);
@@ -171,6 +181,7 @@ public class ReporteControlador {
         }
     }
     
+    //Historial de Pagos y PDF
     @GET
     @Path("historial-pagos")
     @RolesPermitidos({"SECRETARIA", "ADMIN", "SUPERADMIN"})
@@ -296,6 +307,7 @@ public class ReporteControlador {
         return filas;
     }
 
+    //Solventes y Morosos y PDF
     @GET
     @Path("solventes-morosos")
     @RolesPermitidos({"SECRETARIA", "ADMIN", "SUPERADMIN"})
@@ -417,6 +429,7 @@ public class ReporteControlador {
         }
     }
 
+    //Rendimiento y PDF
     @SuppressWarnings("unchecked")
     @GET
     @Path("rendimiento/pdf")
