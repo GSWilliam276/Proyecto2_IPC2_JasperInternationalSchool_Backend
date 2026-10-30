@@ -11,6 +11,7 @@ import com.usac.colegio.jasperschoolbackend.modelo.PagoPropio;
 import com.usac.colegio.jasperschoolbackend.modelo.PerfilEstudiante;
 import com.usac.colegio.jasperschoolbackend.persistencia.interfaces.PanelEstudianteDAO;
 import com.usac.colegio.jasperschoolbackend.utilidades.ConexionBase;
+import com.usac.colegio.jasperschoolbackend.utilidades.Dictamen;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -114,7 +115,8 @@ public class PanelEstudianteDAOPersistencia implements PanelEstudianteDAO {
             }
         }
         BigDecimal total = obtenida.add(examen == null ? BigDecimal.ZERO : examen);
-        return new NotaCurso(idAsignacion, curso, maestro, actividades, maxima, obtenida, examen, total);
+        return new NotaCurso(idAsignacion, curso, maestro, actividades, maxima, obtenida, examen, total,
+                Dictamen.estado(examen, total));
     }
 
     @Override

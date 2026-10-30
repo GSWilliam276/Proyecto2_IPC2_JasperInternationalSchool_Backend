@@ -13,6 +13,7 @@ import com.usac.colegio.jasperschoolbackend.modelo.AsignacionMaestro;
 import com.usac.colegio.jasperschoolbackend.modelo.Inscripcion;
 import com.usac.colegio.jasperschoolbackend.modelo.RegistroAsistencia;
 import com.usac.colegio.jasperschoolbackend.modelo.RegistroNota;
+import com.usac.colegio.jasperschoolbackend.modelo.ResumenAlumno;
 import com.usac.colegio.jasperschoolbackend.persistencia.implementacion.AsignacionMaestroDAOPersistencia;
 import com.usac.colegio.jasperschoolbackend.persistencia.implementacion.AsistenciaDAOPersistencia;
 import com.usac.colegio.jasperschoolbackend.persistencia.implementacion.InscripcionDAOPersistencia;
@@ -33,10 +34,12 @@ import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaAsistencia;
 import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaError;
 import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaListaZona;
 import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaNota;
+import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaResumen;
 import com.usac.colegio.jasperschoolbackend.transferencia.RespuestaZona;
 import com.usac.colegio.jasperschoolbackend.transferencia.SolicitudAsistencia;
 import com.usac.colegio.jasperschoolbackend.transferencia.SolicitudNotas;
 import com.usac.colegio.jasperschoolbackend.transferencia.SolicitudZona;
+import com.usac.colegio.jasperschoolbackend.utilidades.Dictamen;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
@@ -375,6 +378,29 @@ public class MaestroControlador {
         }
     }
 
+    @GET
+    @Path("asignaciones/{id}/resumen")
+    public Response resumen(@PathParam("id") int id, @Context ContainerRequestContext contexto) {
+        try {
+            AccesoMaestro.asignacionPropia(asignacionDAO, id, idMaestro(contexto));
+            List<ResumenAlumno> alumnos = notaDAO.resumen(id);
+            int aprobados = 0;
+            int reprobados = 0;
+            int enCurso = 0;
+            for (ResumenAlumno a : alumnos) {
+                switch (a.estado()) {
+                    case "APROBADO" -> aprobados++;
+                    case "REPROBADO" -> reprobados++;
+                    default -> enCurso++;
+                }
+            }
+            return Response.ok(new RespuestaResumen(Dictamen.NOTA_MINIMA, aprobados, reprobados, enCurso, alumnos))
+                    .build();
+        } catch (ExcepcionPersistencia e) {
+            return errorDe(e, "Error interno al consultar el resumen");
+        }
+    }
+    
     //null si el cuerpo es invalido (vacio, datos faltantes o estudiante repetido)
     private Map<Integer, BigDecimal> aMapa(SolicitudNotas s) {
         if (s == null || s.getNotas() == null || s.getNotas().isEmpty()) {

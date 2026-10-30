@@ -7,8 +7,10 @@ package com.usac.colegio.jasperschoolbackend.persistencia.implementacion;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionOperacionNoPermitida;
 import com.usac.colegio.jasperschoolbackend.excepciones.ExcepcionPersistencia;
 import com.usac.colegio.jasperschoolbackend.modelo.RegistroNota;
+import com.usac.colegio.jasperschoolbackend.modelo.ResumenAlumno;
 import com.usac.colegio.jasperschoolbackend.persistencia.interfaces.NotaDAO;
 import com.usac.colegio.jasperschoolbackend.utilidades.ConexionBase;
+import com.usac.colegio.jasperschoolbackend.utilidades.Dictamen;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -120,6 +122,39 @@ public class NotaDAOPersistencia implements NotaDAO{
         } finally {
             cerrar(con);
         }
+    }
+    
+    @Override
+    public List<ResumenAlumno> resumen(int idAsignacion) throws ExcepcionPersistencia {
+        String sql = "SELECT u.id_usuario, u.nombre, "
+                + "COALESCE((SELECT SUM(n.valor) FROM nota n JOIN actividad_zona z "
+                + "ON z.id_actividad_zona = n.id_actividad_zona "
+                + "WHERE z.id_asignacion = am.id_asignacion AND n.id_estudiante = i.id_estudiante), 0) AS zona, "
+                + "(SELECT COALESCE(SUM(z2.punteo), 0) FROM actividad_zona z2 "
+                + "WHERE z2.id_asignacion = am.id_asignacion) AS zona_max, "
+                + "(SELECT nf.valor FROM nota_final nf WHERE nf.id_asignacion = am.id_asignacion "
+                + "AND nf.id_estudiante = i.id_estudiante) AS examen "
+                + "FROM asignacion_maestro am "
+                + "JOIN inscripcion i ON i.id_seccion = am.id_seccion AND i.estado = 'ACTIVA' "
+                + "JOIN usuario u ON u.id_usuario = i.id_estudiante "
+                + "WHERE am.id_asignacion = ? ORDER BY u.nombre, u.id_usuario";
+        List<ResumenAlumno> lista = new ArrayList<>();
+        try (Connection con = ConexionBase.obtenerInstancia().getConexion();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, idAsignacion);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    BigDecimal zona = rs.getBigDecimal("zona");
+                    BigDecimal examen = rs.getBigDecimal("examen");
+                    BigDecimal total = zona.add(examen == null ? BigDecimal.ZERO : examen);
+                    lista.add(new ResumenAlumno(rs.getInt("id_usuario"), rs.getString("nombre"), zona,
+                            rs.getBigDecimal("zona_max"), examen, total, Dictamen.estado(examen, total)));
+                }
+            }
+        } catch (SQLException e) {
+            throw new ExcepcionPersistencia("Error al consultar el resumen de notas", e);
+        }
+        return lista;
     }
 
     //Metodos de Apoyo 

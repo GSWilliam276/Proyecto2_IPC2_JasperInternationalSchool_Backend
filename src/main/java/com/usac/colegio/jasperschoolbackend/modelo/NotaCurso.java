@@ -11,5 +11,6 @@ import java.util.List;
  * @author eduar
  */
 public record NotaCurso(int idAsignacion, String curso, String maestro, List<NotaActividad> actividades,
-                        BigDecimal zonaMaxima, BigDecimal zonaObtenida, BigDecimal examenFinal, BigDecimal total) {
+                        BigDecimal zonaMaxima, BigDecimal zonaObtenida, BigDecimal examenFinal, BigDecimal total,
+                        String estado) {
 }
