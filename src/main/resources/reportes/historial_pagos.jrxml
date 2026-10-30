@@ -23,30 +23,34 @@
     </variable>
 
     <title>
-        <band height="92">
-            <textField><reportElement x="0" y="0" width="535" height="26" forecolor="#1F4A42"/>
-                <textElement><font size="18" isBold="true"/></textElement>
+        <band height="94">
+            <textField><reportElement x="0" y="0" width="470" height="30" forecolor="#1F4A42"/>
+                <textElement><font size="22" isBold="true" pdfFontName="Helvetica-Bold"/></textElement>
                 <textFieldExpression><![CDATA[$P{titulo}]]></textFieldExpression></textField>
-            <textField><reportElement x="0" y="28" width="535" height="14"/>
-                <textElement><font isBold="true"/></textElement>
+            <textField><reportElement x="0" y="32" width="470" height="14"/>
+                <textElement><font isBold="true" pdfFontName="Helvetica-Bold"/></textElement>
                 <textFieldExpression><![CDATA[$P{estudiante}]]></textFieldExpression></textField>
-            <textField><reportElement x="0" y="43" width="535" height="14"/>
+            <textField><reportElement x="0" y="47" width="470" height="14"/>
                 <textFieldExpression><![CDATA[$P{rango}]]></textFieldExpression></textField>
-            <textField isStretchWithOverflow="true"><reportElement x="0" y="58" width="535" height="14" forecolor="#B33A3A"/>
+            <textField isStretchWithOverflow="true"><reportElement x="0" y="62" width="535" height="14" forecolor="#B33A3A"/>
                 <textFieldExpression><![CDATA[$P{saldo}]]></textFieldExpression></textField>
-            <textField><reportElement x="0" y="74" width="535" height="14" forecolor="#666666"/>
+            <textField><reportElement x="0" y="78" width="470" height="14" forecolor="#666666"/>
                 <textFieldExpression><![CDATA[$P{generado}]]></textFieldExpression></textField>
+            <image>
+                <reportElement x="485" y="10" width="50" height="50"/>
+                <imageExpression><![CDATA["reportes/logo.png"]]></imageExpression>
+            </image>
         </band>
     </title>
 
     <columnHeader>
         <band height="22">
             <staticText><reportElement mode="Opaque" x="0" y="0" width="90" height="22" forecolor="#FFFFFF" backcolor="#2F6F62"/>
-                <textElement verticalAlignment="Middle"><font isBold="true"/></textElement><text><![CDATA[ Fecha]]></text></staticText>
+                <textElement verticalAlignment="Middle"><font isBold="true" pdfFontName="Helvetica-Bold"/></textElement><text><![CDATA[ Fecha]]></text></staticText>
             <staticText><reportElement mode="Opaque" x="90" y="0" width="335" height="22" forecolor="#FFFFFF" backcolor="#2F6F62"/>
-                <textElement verticalAlignment="Middle"><font isBold="true"/></textElement><text><![CDATA[ Concepto]]></text></staticText>
+                <textElement verticalAlignment="Middle"><font isBold="true" pdfFontName="Helvetica-Bold"/></textElement><text><![CDATA[ Concepto]]></text></staticText>
             <staticText><reportElement mode="Opaque" x="425" y="0" width="110" height="22" forecolor="#FFFFFF" backcolor="#2F6F62"/>
-                <textElement textAlignment="Right" verticalAlignment="Middle"><font isBold="true"/></textElement><text><![CDATA[Monto ]]></text></staticText>
+                <textElement textAlignment="Right" verticalAlignment="Middle"><font isBold="true" pdfFontName="Helvetica-Bold"/></textElement><text><![CDATA[Monto ]]></text></staticText>
         </band>
     </columnHeader>
 
@@ -74,10 +78,10 @@
     <summary>
         <band height="34">
             <staticText><reportElement x="0" y="8" width="425" height="20"/>
-                <textElement textAlignment="Right" verticalAlignment="Middle"><font isBold="true"/></textElement>
+                <textElement textAlignment="Right" verticalAlignment="Middle"><font isBold="true" pdfFontName="Helvetica-Bold"/></textElement>
                 <text><![CDATA[Total pagado:]]></text></staticText>
             <textField><reportElement x="425" y="8" width="110" height="20" forecolor="#1F4A42"/>
-                <textElement textAlignment="Right" verticalAlignment="Middle"><font isBold="true"/></textElement>
+                <textElement textAlignment="Right" verticalAlignment="Middle"><font isBold="true" pdfFontName="Helvetica-Bold"/></textElement>
                 <textFieldExpression><![CDATA[new java.text.DecimalFormat("'Q'#,##0.00").format($V{SUMA} == null ? java.math.BigDecimal.ZERO : $V{SUMA}) + " "]]></textFieldExpression></textField>
         </band>
     </summary>

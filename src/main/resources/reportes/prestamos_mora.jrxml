@@ -1,108 +1,162 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports"
-              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-              xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd"
-              name="prestamos_mora" pageWidth="842" pageHeight="595" orientation="Landscape"
-              columnWidth="782" leftMargin="30" rightMargin="30" topMargin="30" bottomMargin="30"
-              whenNoDataType="AllSectionsNoDetail">
-
-    <style name="base" isDefault="true" fontName="SansSerif" fontSize="9" pdfFontName="Helvetica" pdfEncoding="Cp1252"/>
-
-    <parameter name="titulo" class="java.lang.String"/>
-    <parameter name="rango" class="java.lang.String"/>
-    <parameter name="generado" class="java.lang.String"/>
-
-    <field name="libro" class="java.lang.String"/>
-    <field name="prestatario" class="java.lang.String"/>
-    <field name="tipo" class="java.lang.String"/>
-    <field name="fechaPrestamo" class="java.lang.String"/>
-    <field name="fechaEsperada" class="java.lang.String"/>
-    <field name="diasAtraso" class="java.lang.Integer"/>
-    <field name="recargo" class="java.math.BigDecimal"/>
-
-    <variable name="TOTAL" class="java.math.BigDecimal" calculation="Sum">
-        <variableExpression><![CDATA[$F{recargo}]]></variableExpression>
-    </variable>
-
-    <title>
-        <band height="62">
-            <textField>
-                <reportElement x="0" y="0" width="782" height="26" forecolor="#1F4A42"/>
-                <textElement><font size="18" isBold="true"/></textElement>
-                <textFieldExpression><![CDATA[$P{titulo}]]></textFieldExpression>
-            </textField>
-            <textField>
-                <reportElement x="0" y="28" width="782" height="14"/>
-                <textFieldExpression><![CDATA[$P{rango}]]></textFieldExpression>
-            </textField>
-            <textField>
-                <reportElement x="0" y="43" width="782" height="14" forecolor="#666666"/>
-                <textFieldExpression><![CDATA[$P{generado}]]></textFieldExpression>
-            </textField>
-        </band>
-    </title>
-
-    <columnHeader>
-        <band height="22">
-            <staticText><reportElement mode="Opaque" x="0" y="0" width="200" height="22" forecolor="#FFFFFF" backcolor="#2F6F62"/>
-                <textElement verticalAlignment="Middle"><font isBold="true"/></textElement><text><![CDATA[ Libro]]></text></staticText>
-            <staticText><reportElement mode="Opaque" x="200" y="0" width="200" height="22" forecolor="#FFFFFF" backcolor="#2F6F62"/>
-                <textElement verticalAlignment="Middle"><font isBold="true"/></textElement><text><![CDATA[ Prestatario]]></text></staticText>
-            <staticText><reportElement mode="Opaque" x="400" y="0" width="80" height="22" forecolor="#FFFFFF" backcolor="#2F6F62"/>
-                <textElement verticalAlignment="Middle"><font isBold="true"/></textElement><text><![CDATA[ Tipo]]></text></staticText>
-            <staticText><reportElement mode="Opaque" x="480" y="0" width="80" height="22" forecolor="#FFFFFF" backcolor="#2F6F62"/>
-                <textElement verticalAlignment="Middle"><font isBold="true"/></textElement><text><![CDATA[ Préstamo]]></text></staticText>
-            <staticText><reportElement mode="Opaque" x="560" y="0" width="80" height="22" forecolor="#FFFFFF" backcolor="#2F6F62"/>
-                <textElement verticalAlignment="Middle"><font isBold="true"/></textElement><text><![CDATA[ Esperada]]></text></staticText>
-            <staticText><reportElement mode="Opaque" x="640" y="0" width="50" height="22" forecolor="#FFFFFF" backcolor="#2F6F62"/>
-                <textElement textAlignment="Right" verticalAlignment="Middle"><font isBold="true"/></textElement><text><![CDATA[Días ]]></text></staticText>
-            <staticText><reportElement mode="Opaque" x="690" y="0" width="92" height="22" forecolor="#FFFFFF" backcolor="#2F6F62"/>
-                <textElement textAlignment="Right" verticalAlignment="Middle"><font isBold="true"/></textElement><text><![CDATA[Recargo ]]></text></staticText>
-        </band>
-    </columnHeader>
-
-    <detail>
-        <band height="20">
-            <textField isStretchWithOverflow="true"><reportElement x="0" y="0" width="200" height="20"/>
-                <textElement verticalAlignment="Middle"/><textFieldExpression><![CDATA[" " + $F{libro}]]></textFieldExpression></textField>
-            <textField isStretchWithOverflow="true"><reportElement x="200" y="0" width="200" height="20"/>
-                <textElement verticalAlignment="Middle"/><textFieldExpression><![CDATA[" " + $F{prestatario}]]></textFieldExpression></textField>
-            <textField><reportElement x="400" y="0" width="80" height="20"/>
-                <textElement verticalAlignment="Middle"/><textFieldExpression><![CDATA[" " + $F{tipo}]]></textFieldExpression></textField>
-            <textField><reportElement x="480" y="0" width="80" height="20"/>
-                <textElement verticalAlignment="Middle"/><textFieldExpression><![CDATA[" " + $F{fechaPrestamo}]]></textFieldExpression></textField>
-            <textField><reportElement x="560" y="0" width="80" height="20"/>
-                <textElement verticalAlignment="Middle"/><textFieldExpression><![CDATA[" " + $F{fechaEsperada}]]></textFieldExpression></textField>
-                        <textField><reportElement x="640" y="0" width="50" height="20"/>
-            <textElement textAlignment="Right" verticalAlignment="Middle"/>
-                <textFieldExpression><![CDATA[$F{diasAtraso} == null ? "N/A " : $F{diasAtraso} + " "]]></textFieldExpression></textField>
-            <textField><reportElement x="690" y="0" width="86" height="20"/>
-                <textElement textAlignment="Right" verticalAlignment="Middle"/>
-                <textFieldExpression><![CDATA[$F{recargo} == null ? "N/A " : new java.text.DecimalFormat("'Q'#,##0.00").format($F{recargo}) + " "]]></textFieldExpression></textField>
-            <line><reportElement x="0" y="19" width="782" height="1" forecolor="#DDDDDD"/></line>
-        </band>
-    </detail>
-
-    <pageFooter>
-        <band height="20">
-            <textField>
-                <reportElement x="582" y="4" width="200" height="14" forecolor="#666666"/>
-                <textElement textAlignment="Right"/>
-                <textFieldExpression><![CDATA["Página " + $V{PAGE_NUMBER}]]></textFieldExpression>
-            </textField>
-        </band>
-    </pageFooter>
-
-    <summary>
-        <band height="34">
-            <staticText><reportElement x="490" y="8" width="200" height="20"/>
-                <textElement textAlignment="Right" verticalAlignment="Middle"><font isBold="true"/></textElement>
-                <text><![CDATA[Total de recargos:]]></text></staticText>
-            <textField pattern="'Q'#,##0.00">
-                <reportElement x="690" y="8" width="92" height="20" forecolor="#1F4A42"/>
-                <textElement textAlignment="Right" verticalAlignment="Middle"><font isBold="true"/></textElement>
-                <textFieldExpression><![CDATA[$V{TOTAL} == null ? java.math.BigDecimal.ZERO : $V{TOTAL}]]></textFieldExpression>
-            </textField>
-        </band>
-    </summary>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="prestamos_mora" pageWidth="842" pageHeight="595" orientation="Landscape" whenNoDataType="AllSectionsNoDetail" columnWidth="782" leftMargin="30" rightMargin="30" topMargin="30" bottomMargin="30" uuid="75a7b484-36be-40b0-bea9-c4d2c7e8d1c6">
+	<style name="base" isDefault="true" fontName="SansSerif" fontSize="9" pdfFontName="Helvetica" pdfEncoding="Cp1252"/>
+	<parameter name="titulo" class="java.lang.String"/>
+	<parameter name="rango" class="java.lang.String"/>
+	<parameter name="generado" class="java.lang.String"/>
+	<field name="libro" class="java.lang.String"/>
+	<field name="prestatario" class="java.lang.String"/>
+	<field name="tipo" class="java.lang.String"/>
+	<field name="fechaPrestamo" class="java.lang.String"/>
+	<field name="fechaEsperada" class="java.lang.String"/>
+	<field name="diasAtraso" class="java.lang.Integer"/>
+	<field name="recargo" class="java.math.BigDecimal"/>
+	<variable name="TOTAL" class="java.math.BigDecimal" calculation="Sum">
+		<variableExpression><![CDATA[$F{recargo}]]></variableExpression>
+	</variable>
+	<title>
+		<band height="63">
+			<textField>
+				<reportElement x="0" y="0" width="720" height="30" forecolor="#1F4A42" uuid="96326ff7-2ad7-46c2-b789-74c9fb931994"/>
+				<textElement>
+					<font size="22" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{titulo}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="32" width="720" height="14" uuid="f69a4398-0952-4aaf-9d03-6c949eb94469"/>
+				<textFieldExpression><![CDATA[$P{rango}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="47" width="720" height="14" forecolor="#666666" uuid="60d872f9-343a-441b-9fcd-f2d410e5d986"/>
+				<textFieldExpression><![CDATA[$P{generado}]]></textFieldExpression>
+			</textField>
+			<image>
+				<reportElement x="732" y="10" width="50" height="50" uuid="fded8852-1ecc-4c33-b9e5-320d3555d853"/>
+				<imageExpression><![CDATA["reportes/logo.png"]]></imageExpression>
+			</image>
+		</band>
+	</title>
+	<columnHeader>
+		<band height="22">
+			<staticText>
+				<reportElement mode="Opaque" x="0" y="0" width="200" height="22" forecolor="#FFFFFF" backcolor="#2F6F62" uuid="d143a743-c3d1-499d-82b4-63cc312ec295"/>
+				<textElement verticalAlignment="Middle">
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[ Libro]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="200" y="0" width="200" height="22" forecolor="#FFFFFF" backcolor="#2F6F62" uuid="66b671e1-ffd6-4827-82b6-ef2ee23576b1"/>
+				<textElement verticalAlignment="Middle">
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[ Prestatario]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="400" y="0" width="80" height="22" forecolor="#FFFFFF" backcolor="#2F6F62" uuid="be897df4-66c8-425c-832c-92d319722621"/>
+				<textElement verticalAlignment="Middle">
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[ Tipo]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="480" y="0" width="80" height="22" forecolor="#FFFFFF" backcolor="#2F6F62" uuid="45bd0110-18bf-4490-be87-d8ec41d4f5d0"/>
+				<textElement verticalAlignment="Middle">
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[ Préstamo]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="560" y="0" width="80" height="22" forecolor="#FFFFFF" backcolor="#2F6F62" uuid="926c355b-d271-4d9c-a040-61fbece877e8"/>
+				<textElement verticalAlignment="Middle">
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[ Esperada]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="640" y="0" width="50" height="22" forecolor="#FFFFFF" backcolor="#2F6F62" uuid="0b1ab969-2975-4c1e-a78b-e50c361bbf13"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[Días ]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="690" y="0" width="92" height="22" forecolor="#FFFFFF" backcolor="#2F6F62" uuid="4733a64f-915b-4527-9291-eb5001a152ea"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[Recargo ]]></text>
+			</staticText>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="20">
+			<textField textAdjust="StretchHeight">
+				<reportElement x="0" y="0" width="200" height="20" uuid="4372cfb6-125c-4e4f-8d58-4bafa88a39c5"/>
+				<textElement verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[" " + $F{libro}]]></textFieldExpression>
+			</textField>
+			<textField textAdjust="StretchHeight">
+				<reportElement x="200" y="0" width="200" height="20" uuid="ff6b9a84-3197-4a03-924b-37328e52ef2a"/>
+				<textElement verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[" " + $F{prestatario}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="400" y="0" width="80" height="20" uuid="d3fe914c-6064-4607-ab37-881f7f4f3ba7"/>
+				<textElement verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[" " + $F{tipo}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="480" y="0" width="80" height="20" uuid="02e031fd-d325-4f84-96d3-dd6df58030d1"/>
+				<textElement verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[" " + $F{fechaPrestamo}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="560" y="0" width="80" height="20" uuid="e4928538-4a35-4506-9edb-14400e8c4932"/>
+				<textElement verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[" " + $F{fechaEsperada}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="640" y="0" width="50" height="20" uuid="03b32943-cb9e-42a1-9c42-a9cdee34b57e"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{diasAtraso} == null ? "N/A " : $F{diasAtraso} + " "]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="690" y="0" width="92" height="20" uuid="f39bb892-a872-4262-a559-6723ea90e014"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{recargo} == null ? "N/A " : new java.text.DecimalFormat("'Q'#,##0.00").format($F{recargo}) + " "]]></textFieldExpression>
+			</textField>
+			<line>
+				<reportElement x="0" y="19" width="782" height="1" forecolor="#DDDDDD" uuid="4d6f2393-3313-4c14-909d-71c19958e427"/>
+			</line>
+		</band>
+	</detail>
+	<pageFooter>
+		<band height="20">
+			<textField>
+				<reportElement x="582" y="4" width="200" height="14" forecolor="#666666" uuid="4492f4c2-907a-4d2e-84ab-24765db32d3f"/>
+				<textElement textAlignment="Right"/>
+				<textFieldExpression><![CDATA["Página " + $V{PAGE_NUMBER}]]></textFieldExpression>
+			</textField>
+		</band>
+	</pageFooter>
+	<summary>
+		<band height="34">
+			<staticText>
+				<reportElement x="490" y="8" width="200" height="20" uuid="20c1ffe4-2c73-4a4c-9923-686da88bafa7"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[Total de recargos:]]></text>
+			</staticText>
+			<textField pattern="&apos;Q&apos;#,##0.00">
+				<reportElement x="690" y="8" width="92" height="20" forecolor="#1F4A42" uuid="37ed7418-3eef-4b94-92ba-33cf35920a68"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{TOTAL} == null ? java.math.BigDecimal.ZERO : $V{TOTAL}]]></textFieldExpression>
+			</textField>
+		</band>
+	</summary>
 </jasperReport>

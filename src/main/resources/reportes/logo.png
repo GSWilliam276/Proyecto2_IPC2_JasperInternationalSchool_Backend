@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-8 -6 160 116" width="160" height="116" role="img" aria-label="Jasper International School">
+  <!-- cuerpo y gancho de la J: arranca dentro de los brazos para que su punta no sobresalga -->
+  <path d="M50 46 V70 C50 84 42 92 30 92 C24 92 20 90 17 86" fill="none" stroke="#1F4A42" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" />
+  <!-- brazos: llegan hasta la punta superior derecha de la S -->
+  <path d="M16 46 L126 38" fill="none" stroke="#2F6F62" stroke-width="10" stroke-linecap="round" />
+  <!-- cuerpo de la S: cuelga de los brazos, mismo grosor que la J -->
+  <path d="M100 40 C96 42 94 45 94 49 C94 58 104 61 113 64 C123 67 131 71 131 81 C131 90 123 96 112 96 C101 96 95 91 93 83" fill="none" stroke="#2F6F62" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" />
+  <!-- cabeza centrada sobre todo el conjunto -->
+  <circle cx="73" cy="22" r="11" fill="#B4573A" />
+</svg>
